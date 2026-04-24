@@ -19,20 +19,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const priceId = PRICE_IDS[plan];
   if (!priceId) return res.status(400).json({ error: 'Plan inconnu' });
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    customer_email: email,
-    line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: {
-      trial_period_days: 7,
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      customer_email: email,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: { uid, plan },
+      },
       metadata: { uid, plan },
-    },
-    metadata: { uid, plan },
-    success_url: `${APP_URL}/settings?payment=success&plan=${plan}`,
-    cancel_url: `${APP_URL}/settings?payment=cancelled`,
-    locale: 'fr',
-  });
-
-  return res.status(200).json({ url: session.url });
+      success_url: `${APP_URL}/settings?payment=success&plan=${plan}`,
+      cancel_url: `${APP_URL}/settings?payment=cancelled`,
+      locale: 'fr',
+    });
+    return res.status(200).json({ url: session.url });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: message });
+  }
 }
