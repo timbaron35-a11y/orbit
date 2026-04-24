@@ -16,39 +16,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!toEmail || !ownerName) return res.status(400).json({ error: 'Paramètres manquants' });
 
   const appUrl = 'https://orbit-six-indol.vercel.app';
+  const name = appName || 'Orbit';
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <div style="max-width:520px;margin:40px auto;padding:40px 36px;background:#111;border:1px solid #222;border-radius:16px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:32px;">
-      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c5cfc,#a78bfa);display:flex;align-items:center;justify-content:center;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-          <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".5"/>
-        </svg>
-      </div>
-      <span style="font-size:16px;font-weight:700;color:white;">${appName || 'Orbit'}</span>
-    </div>
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invitation ${name}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #e4e4e7;overflow:hidden;">
 
-    <h1 style="font-size:22px;font-weight:700;color:white;margin:0 0 12px;letter-spacing:-0.5px;">
-      Vous avez été invité
-    </h1>
-    <p style="font-size:15px;color:rgba(255,255,255,0.5);line-height:1.7;margin:0 0 28px;">
-      <strong style="color:rgba(255,255,255,0.85);">${ownerName}</strong> (${ownerEmail}) vous invite à collaborer sur son espace ${appName || 'Orbit'}.
-    </p>
+        <!-- Header -->
+        <tr>
+          <td style="padding:28px 36px 24px;border-bottom:1px solid #f0f0f0;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:32px;height:32px;background:#7c5cfc;border-radius:8px;text-align:center;vertical-align:middle;">
+                  <span style="color:white;font-size:16px;font-weight:700;line-height:32px;">O</span>
+                </td>
+                <td style="padding-left:10px;font-size:16px;font-weight:700;color:#18181b;">${name}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-    <a href="${appUrl}" style="display:inline-block;padding:13px 28px;border-radius:10px;background:linear-gradient(135deg,#7c5cfc,#6d4df0);color:white;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:-0.2px;">
-      Accéder à ${appName || 'Orbit'} →
-    </a>
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px;">
+            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#7c5cfc;text-transform:uppercase;letter-spacing:0.05em;">Invitation à collaborer</p>
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#18181b;line-height:1.3;">
+              ${ownerName} vous invite sur ${name}
+            </h1>
+            <p style="margin:0 0 28px;font-size:15px;color:#52525b;line-height:1.7;">
+              Vous avez été invité(e) à rejoindre l'espace de travail de <strong style="color:#18181b;">${ownerName}</strong>${ownerEmail ? ` (${ownerEmail})` : ''} sur ${name}, un CRM pour freelances.
+            </p>
 
-    <p style="font-size:13px;color:rgba(255,255,255,0.25);margin-top:32px;line-height:1.6;">
-      Connectez-vous avec l'adresse <strong style="color:rgba(255,255,255,0.4);">${toEmail}</strong> pour accepter l'invitation dans les paramètres.
-    </p>
-  </div>
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:8px;background:#7c5cfc;">
+                  <a href="${appUrl}" style="display:inline-block;padding:13px 28px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
+                    Accéder à ${name} →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:24px 0 0;font-size:13px;color:#71717a;line-height:1.6;">
+              Connectez-vous avec <strong>${toEmail}</strong>, puis acceptez l'invitation dans les paramètres.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 36px;border-top:1px solid #f0f0f0;background:#fafafa;">
+            <p style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.6;">
+              Vous recevez cet email car ${ownerName} vous a invité(e) sur ${name}.<br>
+              Si vous ne souhaitez pas rejoindre cet espace, ignorez simplement ce message.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>`;
+
+  const text = `${ownerName} vous invite sur ${name}
+
+Vous avez été invité(e) à rejoindre l'espace de travail de ${ownerName}${ownerEmail ? ` (${ownerEmail})` : ''} sur ${name}.
+
+Accédez à ${name} : ${appUrl}
+
+Connectez-vous avec ${toEmail}, puis acceptez l'invitation dans les paramètres.
+
+---
+Vous recevez cet email car ${ownerName} vous a invité(e) sur ${name}.
+Si vous ne souhaitez pas rejoindre cet espace, ignorez simplement ce message.`;
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -57,10 +106,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Orbit <noreply@app-orbit.fr>',
+      from: `${name} <noreply@app-orbit.fr>`,
       to: [toEmail],
-      subject: `${ownerName} vous invite sur ${appName || 'Orbit'}`,
+      subject: `${ownerName} vous invite à collaborer sur ${name}`,
       html,
+      text,
     }),
   });
 
