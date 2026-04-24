@@ -1,25 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-const PRICE_IDS: Record<string, string> = {
-  solo: process.env.STRIPE_PRICE_SOLO!,
-  agence: process.env.STRIPE_PRICE_AGENCE!,
-};
-
 const APP_URL = 'https://orbit-six-indol.vercel.app';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { uid, email, plan } = req.body as { uid: string; email: string; plan: 'solo' | 'agence' };
-  if (!uid || !email || !plan) return res.status(400).json({ error: 'Paramètres manquants' });
-
-  const priceId = PRICE_IDS[plan];
-  if (!priceId) return res.status(400).json({ error: 'Plan inconnu' });
-
   try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+    const PRICE_IDS: Record<string, string> = {
+      solo: process.env.STRIPE_PRICE_SOLO!,
+      agence: process.env.STRIPE_PRICE_AGENCE!,
+    };
+
+    const { uid, email, plan } = req.body as { uid: string; email: string; plan: 'solo' | 'agence' };
+    if (!uid || !email || !plan) return res.status(400).json({ error: 'Paramètres manquants' });
+
+    const priceId = PRICE_IDS[plan];
+    if (!priceId) return res.status(400).json({ error: 'Plan inconnu' });
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],

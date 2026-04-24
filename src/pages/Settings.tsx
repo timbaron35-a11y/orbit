@@ -56,11 +56,13 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid: user.uid, email: user.email, plan: targetPlan }),
       });
-      const { url, error } = await res.json();
-      if (error) { showToast(error, 'error'); return; }
-      window.location.href = url;
-    } catch {
-      showToast('Erreur lors du paiement', 'error');
+      const text = await res.text();
+      let data: { url?: string; error?: string };
+      try { data = JSON.parse(text); } catch { data = { error: `Réponse invalide (${res.status}): ${text.slice(0, 100)}` }; }
+      if (data.error) { showToast(data.error, 'error'); return; }
+      window.location.href = data.url!;
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erreur réseau', 'error');
     } finally {
       setCheckingOut(false);
     }
