@@ -68,9 +68,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const activeStatuses = ['active', 'trialing'];
     const priceId = sub.items.data[0]?.price.id;
     const plan = activeStatuses.includes(status) ? (PLAN_MAP[priceId] ?? 'solo') : 'solo';
+    const locked = !activeStatuses.includes(status);
 
     await db.doc(`users/${uid}/meta/billing`).set({ plan, status }, { merge: true });
-    await db.doc(`users/${uid}/meta/settings`).set({ plan }, { merge: true });
+    await db.doc(`users/${uid}/meta/settings`).set({ plan, locked }, { merge: true });
   }
 
   if (event.type === 'customer.subscription.deleted') {
@@ -79,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!uid) return res.status(200).end();
 
     await db.doc(`users/${uid}/meta/billing`).set({ plan: 'solo', status: 'cancelled' }, { merge: true });
-    await db.doc(`users/${uid}/meta/settings`).set({ plan: 'solo' }, { merge: true });
+    await db.doc(`users/${uid}/meta/settings`).set({ plan: 'solo', locked: true }, { merge: true });
   }
 
   return res.status(200).json({ received: true });

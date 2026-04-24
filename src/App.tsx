@@ -18,9 +18,28 @@ import Landing from './pages/Landing';
 import Demo from './pages/Demo';
 import GlobalSearch from './components/GlobalSearch';
 
+function LockedBanner() {
+  const { locked } = useTheme();
+  if (!locked) return null;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
+      background: 'linear-gradient(90deg, #ef4444, #dc2626)',
+      padding: '10px 24px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      fontSize: 13.5, color: 'white', fontWeight: 500,
+    }}>
+      <span>⚠️ Votre essai a expiré — votre espace est en lecture seule.</span>
+      <a href="/settings" style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}>
+        S'abonner →
+      </a>
+    </div>
+  );
+}
+
 function ProtectedLayout() {
   const { user, loading } = useAuth();
-  const { loaded, isNewUser } = useTheme();
+  const { loaded, isNewUser, locked } = useTheme();
 
   if (loading) {
     return (
@@ -44,8 +63,9 @@ function ProtectedLayout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <LockedBanner />
       <Sidebar />
-      <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)' }}>
+      <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)', marginTop: locked ? 40 : 0 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
