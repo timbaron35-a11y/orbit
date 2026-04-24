@@ -64,9 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const uid = sub.metadata?.uid;
     if (!uid) return res.status(200).end();
 
-    const priceId = sub.items.data[0]?.price.id;
-    const plan = PLAN_MAP[priceId] ?? 'solo';
     const status = sub.status;
+    const activeStatuses = ['active', 'trialing'];
+    const priceId = sub.items.data[0]?.price.id;
+    const plan = activeStatuses.includes(status) ? (PLAN_MAP[priceId] ?? 'solo') : 'solo';
 
     await db.doc(`users/${uid}/meta/billing`).set({ plan, status }, { merge: true });
     await db.doc(`users/${uid}/meta/settings`).set({ plan }, { merge: true });
