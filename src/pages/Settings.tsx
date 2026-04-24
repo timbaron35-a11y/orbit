@@ -149,12 +149,16 @@ export default function Settings() {
               onClick={() => handleCheckout('agence')}
               disabled={checkingOut}
               style={{
-                fontSize: 12.5, fontWeight: 600, color: 'var(--accent)',
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                fontSize: 13, fontWeight: 600, color: 'white',
+                background: 'var(--accent)',
+                border: 'none', cursor: 'pointer',
+                padding: '8px 16px', borderRadius: 8,
                 opacity: checkingOut ? 0.6 : 1,
+                boxShadow: '0 2px 8px rgba(124,92,252,0.35)',
+                transition: 'opacity 0.15s',
               }}
             >
-              {checkingOut ? '…' : 'Passer au Plan Agence →'}
+              {checkingOut ? '…' : '✦ Passer au Plan Agence'}
             </button>
           )}
           {(plan === 'agence' || plan === 'setup') && (
