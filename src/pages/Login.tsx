@@ -89,7 +89,7 @@ export default function Login() {
             <div style={{ fontSize: 32 }}>📬</div>
             <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
               Un email de réinitialisation a été envoyé à <strong style={{ color: 'var(--text)' }}>{email}</strong>.<br />
-              Vérifie ta boîte mail.
+              Vérifie ta boîte mail — et tes spams si tu ne le vois pas.
             </p>
             <button
               onClick={() => { setMode('login'); setResetSent(false); setError(''); }}
