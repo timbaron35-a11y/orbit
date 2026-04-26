@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           content: `Transcription d'un appel de ${durationSeconds ? Math.round(durationSeconds / 60) + ' min' : 'durée inconnue'} avec ${prospectName || 'un prospect'}.
 
 RÈGLES STRICTES :
-- Maximum 4 bullet points
+- Maximum 8 bullet points, minimum 3
 - Chaque point commence par une catégorie : Budget / Décision / Objection / Prochaine étape / Délai / Besoin
 - Format : "Budget : 4 500 € confirmé"
 - Si une info n'est pas mentionnée clairement, ne l'invente pas et n'en parle pas
@@ -35,7 +35,7 @@ Transcription :
 ${transcript.slice(0, 12000)}`,
         },
       ],
-      max_tokens: 250,
+      max_tokens: 400,
       temperature: 0.3,
     });
 
