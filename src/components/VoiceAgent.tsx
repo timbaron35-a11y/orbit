@@ -48,7 +48,7 @@ export default function VoiceAgent() {
   const wakeRef = useRef<any>(null);
 
   const { workspaceUid } = useWorkspace();
-  const { plan } = useTheme();
+  const { plan, agentVocalOnly } = useTheme();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -136,6 +136,7 @@ export default function VoiceAgent() {
   }, []);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const startRecordingRef = useRef<() => void>(() => {});
 
   const speak = useCallback(async (text: string) => {
     if (!ttsEnabled) return;
@@ -151,10 +152,14 @@ export default function VoiceAgent() {
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        // Boucle conversationnelle : écoute auto après la réponse
+        setTimeout(() => startRecordingRef.current(), 600);
+      };
       audio.play();
     } catch { /* silencieux */ }
-  }, [ttsEnabled]);
+  }, [ttsEnabled]); // startRecording ajouté après
 
   const restartWakeWord = () => {
     const sr = wakeRef.current;
@@ -327,6 +332,9 @@ export default function VoiceAgent() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToAgent(inputText); }
   };
+
+  // Toujours à jour pour éviter stale closure dans speak()
+  startRecordingRef.current = startRecording;
 
   if (plan !== 'setup') return null;
 
@@ -564,10 +572,11 @@ export default function VoiceAgent() {
                     } : {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid rgba(255,255,255,0.07)',
-                      color: '#d4d4d4',
+                      color: agentVocalOnly && !m.loading ? 'rgba(255,255,255,0.25)' : '#d4d4d4',
+                      fontStyle: agentVocalOnly && !m.loading ? 'italic' : 'normal',
                     }),
                   }}>
-                    {m.loading ? <ThinkingDots color="#7c5cfc" /> : m.text}
+                    {m.loading ? <ThinkingDots color="#7c5cfc" /> : agentVocalOnly && m.role === 'agent' ? '🔊 Réponse vocale' : m.text}
                   </div>
                 </div>
               ))

@@ -440,6 +440,38 @@ export default function Settings() {
 
       {upgradeModal && <UpgradeModal feature={upgradeModal} onClose={() => setUpgradeModal(null)} />}
 
+      {/* Agent Setup settings */}
+      {plan === 'setup' && (
+        <div style={{ marginTop: 32 }}>
+          <Section title="Assistant IA">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>Réponses vocales uniquement</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>L'agent répond à voix haute sans afficher de texte</div>
+              </div>
+              <button
+                onClick={async () => {
+                  const next = { ...settings, agentVocalOnly: !settings.agentVocalOnly };
+                  await saveSettings(next);
+                  showToast(next.agentVocalOnly ? 'Mode vocal activé' : 'Mode texte + vocal activé');
+                }}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                  background: settings.agentVocalOnly ? 'var(--accent)' : 'var(--border)',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2, left: settings.agentVocalOnly ? 22 : 2,
+                  width: 20, height: 20, borderRadius: '50%', background: 'white',
+                  transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                }} />
+              </button>
+            </div>
+          </Section>
+        </div>
+      )}
+
       {/* Action bar */}
       <div style={{
         display: 'flex', gap: 8, justifyContent: 'flex-end',

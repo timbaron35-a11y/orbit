@@ -9,6 +9,7 @@ export interface ThemeSettings {
   accentColor: string;
   plan: 'solo' | 'agence' | 'setup';
   locked?: boolean;
+  agentVocalOnly?: boolean;
 }
 
 export const DEFAULT_SETTINGS: ThemeSettings = {
@@ -24,6 +25,7 @@ interface ThemeContextType {
   isNewUser: boolean;
   plan: 'solo' | 'agence' | 'setup';
   locked: boolean;
+  agentVocalOnly: boolean;
   saveSettings: (s: ThemeSettings) => Promise<void>;
 }
 
@@ -33,6 +35,7 @@ const ThemeContext = createContext<ThemeContextType>({
   isNewUser: false,
   plan: 'solo' as const,
   locked: false,
+  agentVocalOnly: false,
   saveSettings: async () => {},
 });
 
@@ -88,7 +91,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ settings, loaded, isNewUser, plan: settings.plan ?? 'solo', locked: settings.locked ?? false, saveSettings }}>
+    <ThemeContext.Provider value={{ settings, loaded, isNewUser, plan: settings.plan ?? 'solo', locked: settings.locked ?? false, agentVocalOnly: settings.agentVocalOnly ?? false, saveSettings }}>
       {children}
     </ThemeContext.Provider>
   );
