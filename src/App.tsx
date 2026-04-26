@@ -17,6 +17,7 @@ import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Demo from './pages/Demo';
 import GlobalSearch from './components/GlobalSearch';
+import VoiceAgent from './components/VoiceAgent';
 
 function LockedBanner() {
   const { locked } = useTheme();
@@ -77,6 +78,7 @@ function ProtectedLayout() {
         </Routes>
       </main>
       <GlobalSearch />
+      <VoiceAgent />
     </div>
   );
 }
