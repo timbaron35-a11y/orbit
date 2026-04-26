@@ -13,6 +13,7 @@ import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency, formatDate } fro
 import { tsToDate } from '../types';
 import ProspectModal from '../components/ProspectModal';
 import CallRecorder from '../components/CallRecorder';
+import CallAssistant from '../components/CallAssistant';
 
 type ActivityType = 'note' | 'appel' | 'email' | 'relance';
 
@@ -54,6 +55,7 @@ export default function ProspectDetail() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingProspect, setLoadingProspect] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [filterType, setFilterType] = useState<ActivityType | 'all'>('all');
 
   const [activityType, setActivityType] = useState<ActivityType>('note');
@@ -177,19 +179,35 @@ export default function ProspectDetail() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setEditOpen(true)}
-          style={{
-            padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 7,
-            cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
-        >
-          ✏️ Modifier
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setAssistantOpen(true)}
+            style={{
+              padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600,
+              background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
+              color: '#22c55e', display: 'flex', alignItems: 'center', gap: 7,
+              cursor: 'pointer', transition: 'background 0.15s',
+              boxShadow: '0 2px 8px rgba(34,197,94,0.15)',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.18)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.1)')}
+          >
+            ● Copilote
+          </button>
+          <button
+            onClick={() => setEditOpen(true)}
+            style={{
+              padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 7,
+              cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+          >
+            ✏️ Modifier
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 20 }}>
@@ -253,6 +271,12 @@ export default function ProspectDetail() {
         <ProspectModal
           prospect={prospect}
           onClose={() => { setEditOpen(false); reloadProspect(); }}
+        />
+      )}
+      {assistantOpen && (
+        <CallAssistant
+          prospect={prospect}
+          onClose={() => setAssistantOpen(false)}
         />
       )}
     </div>
