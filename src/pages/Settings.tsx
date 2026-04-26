@@ -436,6 +436,36 @@ export default function Settings() {
             );
           })()}
         </Section>
+
+        {/* Weekly report section */}
+        <Section title="Rapport hebdomadaire">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>Rapport hebdo par email</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Reçois chaque lundi à 8h un rapport IA avec score pipeline, prévision CA et actions prioritaires.
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                const next = { ...settings, weeklyReport: !settings.weeklyReport };
+                await saveSettings(next);
+                showToast(next.weeklyReport ? 'Rapport hebdo activé — premier envoi lundi' : 'Rapport hebdo désactivé');
+              }}
+              style={{
+                width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                background: settings.weeklyReport ? 'var(--accent)' : 'var(--border)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: 16,
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: 2, left: settings.weeklyReport ? 22 : 2,
+                width: 20, height: 20, borderRadius: '50%', background: 'white',
+                transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </div>
+        </Section>
       </div>
 
       {upgradeModal && <UpgradeModal feature={upgradeModal} onClose={() => setUpgradeModal(null)} />}

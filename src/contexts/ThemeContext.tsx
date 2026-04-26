@@ -12,6 +12,7 @@ export interface ThemeSettings {
   agentVocalOnly?: boolean;
   agentWakeWord?: boolean;
   morningRecap?: boolean;
+  weeklyReport?: boolean;
 }
 
 export const DEFAULT_SETTINGS: ThemeSettings = {
