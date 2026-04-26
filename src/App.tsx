@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -18,6 +19,8 @@ import Landing from './pages/Landing';
 import Demo from './pages/Demo';
 import GlobalSearch from './components/GlobalSearch';
 import VoiceAgent from './components/VoiceAgent';
+import SplashScreen from './components/SplashScreen';
+import MorningRecap from './components/MorningRecap';
 
 function LockedBanner() {
   const { locked } = useTheme();
@@ -41,6 +44,7 @@ function LockedBanner() {
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const { loaded, isNewUser, locked } = useTheme();
+  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashShown'));
 
   if (loading) {
     return (
@@ -64,6 +68,13 @@ function ProtectedLayout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {showSplash && (
+        <SplashScreen onDone={() => {
+          sessionStorage.setItem('splashShown', '1');
+          setShowSplash(false);
+        }} />
+      )}
+      <MorningRecap />
       <LockedBanner />
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)', marginTop: locked ? 40 : 0 }}>

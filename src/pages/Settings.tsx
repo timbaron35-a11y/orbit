@@ -459,6 +459,13 @@ export default function Settings() {
                 toastOn: 'Wake word activé',
                 toastOff: 'Wake word désactivé',
               },
+              {
+                key: 'morningRecap' as const,
+                label: 'Récap vocal à l\'ouverture',
+                desc: 'L\'assistant te lit un résumé de tes rappels et prospects chauds du jour',
+                toastOn: 'Récap vocal activé',
+                toastOff: 'Récap vocal désactivé',
+              },
             ].map(({ key, label, desc, toastOn, toastOff }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
                 <div>

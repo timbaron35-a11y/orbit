@@ -11,6 +11,7 @@ export interface ThemeSettings {
   locked?: boolean;
   agentVocalOnly?: boolean;
   agentWakeWord?: boolean;
+  morningRecap?: boolean;
 }
 
 export const DEFAULT_SETTINGS: ThemeSettings = {
@@ -28,6 +29,7 @@ interface ThemeContextType {
   locked: boolean;
   agentVocalOnly: boolean;
   agentWakeWord: boolean;
+  morningRecap: boolean;
   saveSettings: (s: ThemeSettings) => Promise<void>;
 }
 
@@ -39,6 +41,7 @@ const ThemeContext = createContext<ThemeContextType>({
   locked: false,
   agentVocalOnly: false,
   agentWakeWord: false,
+  morningRecap: false,
   saveSettings: async () => {},
 });
 
@@ -94,7 +97,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ settings, loaded, isNewUser, plan: settings.plan ?? 'solo', locked: settings.locked ?? false, agentVocalOnly: settings.agentVocalOnly ?? false, agentWakeWord: settings.agentWakeWord ?? false, saveSettings }}>
+    <ThemeContext.Provider value={{ settings, loaded, isNewUser, plan: settings.plan ?? 'solo', locked: settings.locked ?? false, agentVocalOnly: settings.agentVocalOnly ?? false, agentWakeWord: settings.agentWakeWord ?? false, morningRecap: settings.morningRecap ?? false, saveSettings }}>
       {children}
     </ThemeContext.Provider>
   );
