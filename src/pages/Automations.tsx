@@ -26,7 +26,6 @@ export default function Automations() {
   const [requestSent, setRequestSent] = useState(false);
 
   const toggleAutomation = (id: string) => {
-    if (!isSetup) { setShowUpgrade(true); return; }
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
   };
 
@@ -44,15 +43,9 @@ export default function Automations() {
             {isSetup ? `${activeCount} automation${activeCount !== 1 ? 's' : ''} active${activeCount !== 1 ? 's' : ''}` : 'Automatisez vos actions commerciales récurrentes'}
           </p>
         </div>
-        {!isSetup && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
-            <span style={{ fontSize: 13 }}>🔒</span>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#fbbf24' }}>Plan Premium requis</span>
-          </div>
-        )}
       </div>
 
-      {/* Locked banner */}
+      {/* Custom automations banner — only locked for non-setup */}
       {!isSetup && (
         <div style={{
           background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.18)',
@@ -63,7 +56,7 @@ export default function Automations() {
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Automations personnalisées</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Activez, désactivez et créez vos propres automations avec le Plan Premium — configuration complète incluse.
+              Créez vos propres automations sur-mesure avec le Plan Premium — configuration complète incluse.
             </div>
           </div>
           <a
@@ -78,8 +71,8 @@ export default function Automations() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
         {[
-          { label: 'Actives', value: isSetup ? activeCount : '—', color: '#22c55e', accent: 'rgba(34,197,94,0.7)' },
-          { label: 'Déclenchements', value: isSetup ? totalRuns : '—', color: 'var(--accent)', accent: 'rgba(124,92,252,0.7)' },
+          { label: 'Actives', value: activeCount, color: '#22c55e', accent: 'rgba(34,197,94,0.7)' },
+          { label: 'Déclenchements', value: totalRuns, color: 'var(--accent)', accent: 'rgba(124,92,252,0.7)' },
           { label: 'Disponibles', value: automations.length, color: 'var(--text-dim)', accent: 'rgba(115,115,115,0.5)' },
         ].map(({ label, value, color, accent }) => (
           <div key={label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
@@ -100,9 +93,9 @@ export default function Automations() {
               borderRadius: 14, padding: '16px 20px',
               display: 'flex', alignItems: 'center', gap: 16,
               transition: 'opacity 0.2s, border-color 0.2s, box-shadow 0.2s',
-              opacity: (!isSetup || !a.active) ? 0.55 : 1,
-              boxShadow: isSetup && a.active ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
-              borderColor: isSetup && a.active ? 'var(--border)' : 'var(--border-subtle)',
+              opacity: !a.active ? 0.55 : 1,
+              boxShadow: a.active ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
+              borderColor: a.active ? 'var(--border)' : 'var(--border-subtle)',
             }}
           >
             {/* Icon */}
@@ -112,7 +105,7 @@ export default function Automations() {
               border: `1px solid ${a.iconColor}30`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 19,
-              boxShadow: isSetup && a.active ? `0 0 12px ${a.iconColor}30` : 'none',
+              boxShadow: a.active ? `0 0 12px ${a.iconColor}30` : 'none',
             }}>
               {a.icon}
             </div>
@@ -129,7 +122,7 @@ export default function Automations() {
             </div>
 
             {/* Run count */}
-            {a.runs > 0 && isSetup && (
+            {a.runs > 0 && (
               <div style={{
                 padding: '4px 10px', borderRadius: 20,
                 background: 'var(--surface-2)', border: '1px solid var(--border)',
@@ -144,17 +137,17 @@ export default function Automations() {
               onClick={() => toggleAutomation(a.id)}
               style={{
                 width: 44, height: 24, borderRadius: 12,
-                background: !isSetup ? 'var(--surface-2)' : a.active ? 'var(--accent)' : 'var(--surface-2)',
+                background: a.active ? 'var(--accent)' : 'var(--surface-2)',
                 border: '1px solid',
-                borderColor: !isSetup ? 'var(--border)' : a.active ? 'var(--accent)' : 'var(--border)',
-                cursor: !isSetup ? 'default' : 'pointer',
+                borderColor: a.active ? 'var(--accent)' : 'var(--border)',
+                cursor: 'pointer',
                 position: 'relative', transition: 'background 0.2s, border-color 0.2s',
-                flexShrink: 0, opacity: !isSetup ? 0.4 : 1,
-                boxShadow: isSetup && a.active ? '0 0 8px rgba(124,92,252,0.3)' : 'none',
+                flexShrink: 0,
+                boxShadow: a.active ? '0 0 8px rgba(124,92,252,0.3)' : 'none',
               }}
             >
               <div style={{
-                position: 'absolute', top: 2, left: a.active && isSetup ? 22 : 2,
+                position: 'absolute', top: 2, left: a.active ? 22 : 2,
                 width: 18, height: 18, borderRadius: '50%',
                 background: 'white', transition: 'left 0.2s',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
