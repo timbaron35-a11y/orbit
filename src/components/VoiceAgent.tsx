@@ -45,7 +45,7 @@ export default function VoiceAgent() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [wakeReady, setWakeReady] = useState(false);
-  const wakeRef = useRef<SpeechRecognition | null>(null);
+  const wakeRef = useRef<any>(null);
 
   const { workspaceUid } = useWorkspace();
   const { plan } = useTheme();
@@ -88,13 +88,13 @@ export default function VoiceAgent() {
     const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     if (!SR) return;
 
-    const sr: SpeechRecognition = new SR();
+    const sr: any = new SR();
     sr.lang = 'fr-FR';
     sr.continuous = true;
     sr.interimResults = true;
     wakeRef.current = sr;
 
-    sr.onresult = (e: SpeechRecognitionEvent) => {
+    sr.onresult = (e: any) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript.toLowerCase();
         if (t.includes('orbit') && micState === 'idle') {
@@ -111,7 +111,7 @@ export default function VoiceAgent() {
         try { sr.start(); } catch { /* already started */ }
       }
     };
-    sr.onerror = (e: SpeechRecognitionErrorEvent) => {
+    sr.onerror = (e: any) => {
       if (e.error === 'not-allowed') { setWakeReady(false); return; }
     };
 
