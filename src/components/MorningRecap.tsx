@@ -8,13 +8,13 @@ import { tsToDate, daysSince } from '../types';
 
 const RECAP_KEY = 'morningRecapDate';
 
-export default function MorningRecap() {
+export default function MorningRecap({ ready }: { ready: boolean }) {
   const { morningRecap, plan } = useTheme();
   const { workspaceUid } = useWorkspace();
   const doneRef = useRef(false);
 
   useEffect(() => {
-    if (!morningRecap || plan !== 'setup' || !workspaceUid || doneRef.current) return;
+    if (!ready || !morningRecap || plan !== 'setup' || !workspaceUid || doneRef.current) return;
 
     const today = new Date().toDateString();
     if (localStorage.getItem(RECAP_KEY) === today) return;
@@ -91,10 +91,8 @@ export default function MorningRecap() {
       } catch { /* silencieux */ }
     };
 
-    // Délai pour laisser l'app se charger
-    const t = setTimeout(run, 2000);
-    return () => clearTimeout(t);
-  }, [morningRecap, plan, workspaceUid]);
+    run();
+  }, [ready, morningRecap, plan, workspaceUid]);
 
   return null;
 }

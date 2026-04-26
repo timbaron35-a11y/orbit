@@ -45,6 +45,7 @@ function ProtectedLayout() {
   const { user, loading } = useAuth();
   const { loaded, isNewUser, locked } = useTheme();
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashShown'));
+  const [splashDone, setSplashDone] = useState(() => !!sessionStorage.getItem('splashShown'));
 
   if (loading) {
     return (
@@ -72,9 +73,10 @@ function ProtectedLayout() {
         <SplashScreen onDone={() => {
           sessionStorage.setItem('splashShown', '1');
           setShowSplash(false);
+          setSplashDone(true);
         }} />
       )}
-      <MorningRecap />
+      <MorningRecap ready={splashDone} />
       <LockedBanner />
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)', marginTop: locked ? 40 : 0 }}>

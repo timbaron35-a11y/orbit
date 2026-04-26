@@ -476,6 +476,7 @@ export default function Settings() {
                   onClick={async () => {
                     const next = { ...settings, [key]: !settings[key] };
                     await saveSettings(next);
+                    if (key === 'morningRecap' && next[key]) localStorage.removeItem('morningRecapDate');
                     showToast(next[key] ? toastOn : toastOff);
                   }}
                   style={{
