@@ -87,6 +87,13 @@ export default function Team() {
   const totalPipeline = memberStats.reduce((s, m) => s + m.caPipeline, 0);
   const totalStale = memberStats.reduce((s, m) => s + m.stale, 0);
 
+  // Donut data: team-wide status counts
+  const teamByStatus = STATUSES.map(s => ({
+    status: s,
+    count: prospects.filter(p => p.status === s).length,
+  })).filter(x => x.count > 0);
+  const totalAssigned = teamByStatus.reduce((s, x) => s + x.count, 0);
+
   return (
     <div style={{ padding: '36px 40px', maxWidth: 900 }}>
       {/* Header */}
@@ -112,6 +119,63 @@ export default function Team() {
           </div>
         ))}
       </div>
+
+      {/* Charts row */}
+      {prospects.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+
+          {/* Donut — statuts équipe */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 18 }}>Statuts équipe</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <DonutChart data={teamByStatus} total={totalAssigned} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {teamByStatus.map(({ status, count }) => (
+                  <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[status as ProspectStatus], flexShrink: 0, boxShadow: `0 0 5px ${STATUS_COLOR[status as ProspectStatus]}` }} />
+                    <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flex: 1 }}>{STATUS_LABEL[status as ProspectStatus]}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: STATUS_COLOR[status as ProspectStatus] }}>{count}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 32, textAlign: 'right' }}>{Math.round((count / totalAssigned) * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Member comparison bars */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 18 }}>CA signé par membre</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {memberStats.filter(m => m.total > 0).map(m => {
+                const pct = totalCA > 0 ? (m.caSigned / totalCA) * 100 : (m.total > 0 ? 100 / memberStats.filter(x => x.total > 0).length : 0);
+                const prospectPct = prospects.length > 0 ? (m.total / prospects.filter(p => p.assignedTo).length) * 100 : 0;
+                return (
+                  <div key={m.email}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{m.label}</span>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>{formatCurrency(m.caSigned)}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.total} prospects</span>
+                      </div>
+                    </div>
+                    {/* CA bar */}
+                    <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden', marginBottom: 3 }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #22c55e, #4ade80)', borderRadius: 3, transition: 'width 0.6s ease' }} />
+                    </div>
+                    {/* Prospects bar */}
+                    <div style={{ height: 4, borderRadius: 2, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${prospectPct}%`, background: 'linear-gradient(90deg, var(--accent), #a78bfa)', borderRadius: 2, opacity: 0.6, transition: 'width 0.6s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {memberStats.every(m => m.total === 0) && (
+              <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', paddingTop: 12 }}>Aucun prospect assigné</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Member cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -232,6 +296,41 @@ function MemberCard({ stats: m, isMe }: { stats: MemberStats; isMe: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+function DonutChart({ data, total }: { data: { status: string; count: number }[]; total: number }) {
+  const R = 48; const stroke = 10;
+  const circ = 2 * Math.PI * R;
+  let offset = 0;
+  const slices = data.map(({ status, count }) => {
+    const pct = total > 0 ? count / total : 0;
+    const dash = pct * circ;
+    const gap = circ - dash;
+    const slice = { status, dash, gap, offset };
+    offset += dash;
+    return slice;
+  });
+
+  return (
+    <svg width={120} height={120} viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+      <circle cx={60} cy={60} r={R} fill="none" stroke="var(--surface-2)" strokeWidth={stroke} />
+      {slices.map(({ status, dash, gap, offset: off }) => (
+        <circle
+          key={status}
+          cx={60} cy={60} r={R}
+          fill="none"
+          stroke={STATUS_COLOR[status as ProspectStatus]}
+          strokeWidth={stroke}
+          strokeDasharray={`${dash} ${gap}`}
+          strokeDashoffset={circ / 4 - off}
+          strokeLinecap="butt"
+          style={{ filter: `drop-shadow(0 0 4px ${STATUS_COLOR[status as ProspectStatus]}60)` }}
+        />
+      ))}
+      <text x={60} y={55} textAnchor="middle" style={{ fontSize: 20, fontWeight: 700, fill: 'var(--text)' }}>{total}</text>
+      <text x={60} y={70} textAnchor="middle" style={{ fontSize: 9, fill: 'var(--text-muted)' }}>prospects</text>
+    </svg>
   );
 }
 
