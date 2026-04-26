@@ -54,7 +54,7 @@ function DemoApp() {
 
           <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 32 }}>
             <Sidebar />
-            <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)' }}>
+            <main className="demo-main" style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)' }}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/pipeline" element={<Pipeline />} />

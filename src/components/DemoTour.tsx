@@ -1,159 +1,296 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useNavigate } from 'react-router-dom';
 
-interface Step {
-  title: string;
-  body: string;
-  target?: string;
-  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+type Plan = 'solo' | 'agence' | 'setup';
+
+interface Feature {
+  icon: string;
+  label: string;
+  desc: string;
+  path?: string;
+  plans: Plan[];
+  badge?: string;
 }
 
-const STEPS: Step[] = [
+const FEATURES: Feature[] = [
   {
-    title: 'Bienvenue dans Orbit 👋',
-    body: 'Ce tour va vous montrer les principales fonctionnalités en 2 minutes. Vous pouvez naviguer librement et utiliser l\'app normalement — vos données sont isolées.',
-    position: 'center',
+    icon: '◎',
+    label: 'Dashboard',
+    desc: 'Métriques en temps réel : prospects actifs, CA signé, taux de conversion, relances urgentes.',
+    path: '/',
+    plans: ['solo', 'agence', 'setup'],
   },
   {
-    title: 'Dashboard',
-    body: 'La page d\'accueil résume votre activité : prospects actifs, taux de conversion, CA signé ce mois, et les relances urgentes.',
-    target: 'tour-dashboard',
-    position: 'right',
+    icon: '⬡',
+    label: 'Pipeline kanban',
+    desc: 'Glissez les prospects d\'une colonne à l\'autre. Totaux par statut, alerte de relance intégrée.',
+    path: '/pipeline',
+    plans: ['solo', 'agence', 'setup'],
   },
   {
-    title: 'Ajouter un prospect',
-    body: 'Cliquez sur "+ Nouveau prospect" pour créer votre premier contact. Remplissez le nom, le statut, le montant estimé et une date de rappel.',
-    target: 'tour-new-prospect',
-    position: 'bottom',
+    icon: '◷',
+    label: 'Agenda & rappels',
+    desc: 'Tous vos rappels groupés par urgence. Reporter ou marquer comme fait en un clic.',
+    path: '/agenda',
+    plans: ['solo', 'agence', 'setup'],
   },
   {
-    title: 'Pipeline',
-    body: 'Visualisez tous vos prospects par statut : Nouveau, Contacté, Devis, Signé, Perdu. Filtrez et triez pour avoir une vue claire de votre pipeline.',
-    target: 'tour-pipeline',
-    position: 'right',
+    icon: '⟳',
+    label: 'Automations',
+    desc: 'Alertes automatiques : relances en retard, prospect signé, devis sans réponse. Activez/désactivez à la volée.',
+    path: '/pipeline',
+    plans: ['solo', 'agence', 'setup'],
   },
   {
-    title: 'Fiche prospect',
-    body: 'Cliquez sur un prospect pour accéder à sa fiche complète : informations, notes, tags, et surtout son journal d\'activité. Chaque appel, email ou note est consigné.',
-    target: 'tour-clients',
-    position: 'right',
+    icon: '✉',
+    label: 'Rapport hebdo IA',
+    desc: 'Chaque lundi à 8h : score pipeline /10, prévision CA, narrative IA personnalisée, actions prioritaires.',
+    path: '/settings',
+    plans: ['solo', 'agence', 'setup'],
+    badge: 'IA',
   },
   {
-    title: 'Agenda & rappels',
-    body: 'Les rappels que vous assignez aux prospects apparaissent ici, groupés par urgence. Marquez-les comme faits ou reportez-les d\'un clic.',
-    target: 'tour-agenda',
-    position: 'right',
+    icon: '↗',
+    label: 'Collaboration',
+    desc: 'Invitez jusqu\'à 4 membres dans votre espace. Assignez des prospects, gérez les rôles éditeur/lecture.',
+    path: '/settings',
+    plans: ['agence', 'setup'],
   },
   {
-    title: 'Paramètres',
-    body: 'Personnalisez le nom de l\'outil et sa couleur principale. Vous pouvez aussi inviter un collaborateur pour travailler à deux sur les mêmes prospects.',
-    target: 'tour-settings',
-    position: 'right',
+    icon: '🎙',
+    label: 'Transcription d\'appel',
+    desc: 'Enregistrez un appel, l\'IA transcrit et génère un résumé structuré qui s\'enregistre automatiquement dans le CRM.',
+    path: '/clients',
+    plans: ['setup'],
+    badge: 'IA',
   },
   {
-    title: 'C\'est tout !',
-    body: 'Vous avez vu l\'essentiel. Testez librement, ajoutez de vrais prospects, explorez les fonctionnalités. Votre avis nous est précieux.',
-    position: 'center',
+    icon: '◉',
+    label: 'Copilote d\'appel live',
+    desc: 'Écoute passive pendant vos appels Meet/Teams. Détecte budget, objections, décisions. Suggestions en temps réel.',
+    path: '/clients',
+    plans: ['setup'],
+    badge: 'IA',
+  },
+  {
+    icon: '◈',
+    label: 'Récap vocal matinal',
+    desc: 'À l\'ouverture de l\'app, l\'assistant vous lit vos rappels du jour et prospects chauds à voix haute.',
+    path: '/',
+    plans: ['setup'],
+    badge: 'IA',
+  },
+  {
+    icon: '⬗',
+    label: 'Assistant vocal IA',
+    desc: 'Demandez à voix haute "Qui dois-je relancer ?" ou "Quel est mon CA ce mois ?". Réponses en temps réel.',
+    path: '/',
+    plans: ['setup'],
+    badge: 'IA',
+  },
+  {
+    icon: '⚡',
+    label: 'Automations personnalisées',
+    desc: 'Soumettez vos scénarios d\'automatisation, on les configure pour vous en 3 jours ouvrés.',
+    path: '/pipeline',
+    plans: ['setup'],
+    badge: 'Sur-mesure',
   },
 ];
+
+const PLAN_CONFIG = {
+  solo: {
+    label: 'Solo',
+    price: 'Gratuit',
+    color: '#a1a1aa',
+    accent: 'rgba(161,161,170,0.15)',
+    border: 'rgba(161,161,170,0.3)',
+    desc: 'Tout ce qu\'il faut pour gérer son pipeline seul.',
+    cta: 'Essayer Solo',
+  },
+  agence: {
+    label: 'Agence',
+    price: '29€/mois',
+    color: '#3b82f6',
+    accent: 'rgba(59,130,246,0.1)',
+    border: 'rgba(59,130,246,0.3)',
+    desc: 'Pour les freelances qui travaillent en équipe.',
+    cta: 'Essayer Agence',
+  },
+  setup: {
+    label: 'Premium IA',
+    price: '149€ one-shot',
+    color: '#7c5cfc',
+    accent: 'rgba(124,92,252,0.12)',
+    border: 'rgba(124,92,252,0.35)',
+    desc: 'L\'IA intégrée dans chaque étape de votre process commercial.',
+    cta: 'Essayer Premium',
+    featured: true,
+  },
+};
 
 interface Props {
   onEnd: () => void;
 }
 
 export default function DemoTour({ onEnd }: Props) {
-  const [step, setStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [phase, setPhase] = useState<'plans' | 'guide' | 'feedback' | 'done'>('plans');
+  const [selectedPlan, setSelectedPlan] = useState<Plan>('solo');
+  const [guideOpen, setGuideOpen] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [name, setName] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
+  const navigate = useNavigate();
 
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
-  const isFirst = step === 0;
-
-  useEffect(() => {
-    if (!current.target) { setTargetRect(null); return; }
-    const el = document.getElementById(current.target);
-    if (!el) { setTargetRect(null); return; }
-    const rect = el.getBoundingClientRect();
-    setTargetRect(rect);
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [step]);
-
-  const next = () => {
-    if (isLast) { setShowFeedback(true); return; }
-    setStep(s => s + 1);
-  };
-
-  const prev = () => setStep(s => Math.max(0, s - 1));
+  const visibleFeatures = FEATURES.filter(f => f.plans.includes(selectedPlan));
 
   const submitFeedback = async () => {
     if (!feedback.trim()) return;
     setSubmitting(true);
     await addDoc(collection(db, 'demo_feedback'), {
       name: name.trim() || 'Anonyme',
+      plan: selectedPlan,
       feedback: feedback.trim(),
       createdAt: Timestamp.now(),
     });
     setSubmitting(false);
-    setSubmitted(true);
+    setPhase('done');
   };
 
-  if (submitted) {
+  // ── Plan selection ──────────────────────────────────────────────────────────
+  if (phase === 'plans') {
     return (
-      <div style={overlayStyle}>
-        <div style={cardStyle}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>🙏</div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 10, letterSpacing: '-0.3px' }}>
-            Merci pour votre retour !
-          </h2>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: 24 }}>
-            Votre avis a été transmis. Vous pouvez continuer à explorer l'application librement.
-          </p>
-          <button onClick={onEnd} style={primaryBtn}>Continuer dans l'app →</button>
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px 16px',
+      }}>
+        <div style={{ maxWidth: 860, width: '100%' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7c5cfc', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(124,92,252,0.5)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".5"/></svg>
+              </div>
+              <span style={{ fontSize: 20, fontWeight: 700, color: 'white', letterSpacing: '-0.4px' }}>Orbit</span>
+            </div>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: 'white', letterSpacing: '-0.5px', margin: '0 0 10px' }}>
+              Le CRM qui pense pour vous
+            </h1>
+            <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+              Choisissez un plan pour explorer ses fonctionnalités
+            </p>
+          </div>
+
+          {/* Plan cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+            {(Object.entries(PLAN_CONFIG) as [Plan, typeof PLAN_CONFIG.solo][]).map(([plan, cfg]) => {
+              const featureCount = FEATURES.filter(f => f.plans.includes(plan)).length;
+              const isSelected = selectedPlan === plan;
+              const isFeatured = !!(('featured' in cfg) && cfg.featured);
+
+              return (
+                <div
+                  key={plan}
+                  onClick={() => setSelectedPlan(plan)}
+                  style={{
+                    background: isSelected ? cfg.accent : 'rgba(255,255,255,0.04)',
+                    border: `1.5px solid ${isSelected ? cfg.color : 'rgba(255,255,255,0.1)'}`,
+                    borderRadius: 14, padding: '22px 20px',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    position: 'relative', overflow: 'hidden',
+                  }}
+                >
+                  {isFeatured && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${cfg.color}, #a78bfa)` }} />
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: isSelected ? cfg.color : 'white' }}>{cfg.label}</span>
+                    {isFeatured && <span style={{ fontSize: 10.5, fontWeight: 700, color: cfg.color, background: `${cfg.color}20`, padding: '2px 8px', borderRadius: 20, border: `1px solid ${cfg.color}40` }}>⭐ Populaire</span>}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'white', letterSpacing: '-0.5px', marginBottom: 6 }}>{cfg.price}</div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginBottom: 14 }}>{cfg.desc}</div>
+                  <div style={{ fontSize: 12, color: isSelected ? cfg.color : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                    {featureCount} fonctionnalité{featureCount > 1 ? 's' : ''}
+                  </div>
+
+                  {isSelected && (
+                    <div style={{ position: 'absolute', top: 14, right: 14, width: 18, height: 18, borderRadius: '50%', background: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'white', fontWeight: 700 }}>✓</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Feature preview for selected plan */}
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '16px 20px', marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
+              Inclus dans le plan {PLAN_CONFIG[selectedPlan].label}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {visibleFeatures.map(f => (
+                <span key={f.label} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 500,
+                  background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.8)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}>
+                  {f.icon} {f.label}
+                  {f.badge && <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700 }}>{f.badge}</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+            <button
+              onClick={onEnd}
+              style={{ padding: '11px 22px', borderRadius: 10, fontSize: 13.5, fontWeight: 500, background: 'transparent', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer' }}
+            >
+              Explorer librement
+            </button>
+            <button
+              onClick={() => setPhase('guide')}
+              style={{
+                padding: '11px 28px', borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                background: PLAN_CONFIG[selectedPlan].color, color: 'white', border: 'none',
+                cursor: 'pointer', boxShadow: `0 4px 20px ${PLAN_CONFIG[selectedPlan].color}50`,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              {PLAN_CONFIG[selectedPlan].cta} →
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (showFeedback) {
+  // ── Feedback ────────────────────────────────────────────────────────────────
+  if (phase === 'feedback') {
     return (
-      <div style={overlayStyle}>
-        <div style={{ ...cardStyle, maxWidth: 460 }}>
-          <div style={{ fontSize: 32, marginBottom: 14 }}>💬</div>
-          <h2 style={{ fontSize: 19, fontWeight: 700, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.3px' }}>
-            Votre avis compte
-          </h2>
-          <p style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
-            Qu'avez-vous pensé d'Orbit ? Ce qui vous a plu, ce qui manque, ce qui n'est pas clair — tout est utile.
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '40px 36px', maxWidth: 440, width: '100%', boxShadow: '0 30px 80px rgba(0,0,0,0.4)', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 14 }}>💬</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.3px' }}>Votre avis compte</h2>
+          <p style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 22, lineHeight: 1.6 }}>
+            Qu'avez-vous pensé d'Orbit ? Ce qui vous a plu, ce qui manque, ce qui n'est pas clair.
           </p>
-          <input
-            className="orbit-input"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Votre prénom (optionnel)"
-            style={{ marginBottom: 10, fontSize: 13 }}
-          />
-          <textarea
-            className="orbit-input"
-            value={feedback}
-            onChange={e => setFeedback(e.target.value)}
-            placeholder="Votre retour sur l'app…"
-            rows={5}
-            style={{ resize: 'none', lineHeight: 1.65, marginBottom: 16, fontSize: 13 }}
-          />
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={onEnd} style={ghostBtn}>Passer</button>
+          <input className="orbit-input" value={name} onChange={e => setName(e.target.value)} placeholder="Votre prénom (optionnel)" style={{ marginBottom: 10, fontSize: 13 }} />
+          <textarea className="orbit-input" value={feedback} onChange={e => setFeedback(e.target.value)} placeholder="Votre retour…" rows={4} style={{ resize: 'none', lineHeight: 1.65, marginBottom: 16, fontSize: 13 }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onEnd} style={{ flex: 1, padding: '10px', borderRadius: 8, fontSize: 13, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Passer</button>
             <button
               onClick={submitFeedback}
               disabled={!feedback.trim() || submitting}
-              style={{ ...primaryBtn, opacity: !feedback.trim() || submitting ? 0.6 : 1 }}
+              style={{ flex: 2, padding: '10px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer', opacity: !feedback.trim() ? 0.6 : 1 }}
             >
-              {submitting ? '…' : 'Envoyer mon retour'}
+              {submitting ? '…' : 'Envoyer'}
             </button>
           </div>
         </div>
@@ -161,118 +298,159 @@ export default function DemoTour({ onEnd }: Props) {
     );
   }
 
-  // Highlight box around target
-  const pad = 10;
-  const highlightStyle: React.CSSProperties | null = targetRect ? {
-    position: 'fixed',
-    top: targetRect.top - pad,
-    left: targetRect.left - pad,
-    width: targetRect.width + pad * 2,
-    height: targetRect.height + pad * 2,
-    borderRadius: 12,
-    boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-    border: '2px solid var(--accent)',
-    zIndex: 999,
-    pointerEvents: 'none',
-    transition: 'all 0.3s cubic-bezier(0.16,1,0.3,1)',
-  } : null;
-
-  // Tooltip position
-  let tooltipStyle: React.CSSProperties = { position: 'fixed', zIndex: 1000, width: 320 };
-  if (!targetRect || current.position === 'center') {
-    tooltipStyle = { ...tooltipStyle, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-  } else if (current.position === 'right') {
-    tooltipStyle = { ...tooltipStyle, top: targetRect.top, left: targetRect.right + 20 };
-  } else if (current.position === 'bottom') {
-    tooltipStyle = { ...tooltipStyle, top: targetRect.bottom + 16, left: targetRect.left };
-  } else if (current.position === 'left') {
-    tooltipStyle = { ...tooltipStyle, top: targetRect.top, right: window.innerWidth - targetRect.left + 20 };
+  if (phase === 'done') {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '40px 36px', maxWidth: 380, width: '100%', boxShadow: '0 30px 80px rgba(0,0,0,0.4)', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🙏</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>Merci !</h2>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: 24 }}>Votre retour a été transmis. Continuez à explorer librement.</p>
+          <button onClick={onEnd} style={{ padding: '11px 28px', borderRadius: 9, fontSize: 13.5, fontWeight: 700, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(124,92,252,0.35)' }}>
+            Continuer →
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  // ── Guide panel ─────────────────────────────────────────────────────────────
+  const planCfg = PLAN_CONFIG[selectedPlan];
 
   return (
     <>
-      {/* Dim overlay (no highlight) */}
-      {!targetRect && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 998, pointerEvents: 'none' }} />
-      )}
+      {/* Floating guide panel */}
+      <div style={{
+        position: 'fixed', right: 0, top: 32, bottom: 0,
+        width: guideOpen ? 300 : 44,
+        background: 'var(--surface)', borderLeft: '1px solid var(--border)',
+        zIndex: 500, display: 'flex', flexDirection: 'column',
+        transition: 'width 0.2s cubic-bezier(0.16,1,0.3,1)',
+        boxShadow: '-8px 0 30px rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+      }}>
+        {/* Toggle tab */}
+        <button
+          onClick={() => setGuideOpen(!guideOpen)}
+          style={{
+            position: 'absolute', left: -1, top: '50%', transform: 'translateY(-50%)',
+            width: 20, height: 56, borderRadius: '8px 0 0 8px',
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRight: 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)', fontSize: 10,
+          }}
+        >
+          {guideOpen ? '›' : '‹'}
+        </button>
 
-      {/* Highlight cutout */}
-      {highlightStyle && <div style={highlightStyle} />}
+        {guideOpen && (
+          <>
+            {/* Header */}
+            <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>Guide des fonctionnalités</div>
+                <button onClick={() => setPhase('feedback')} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                  Donner un avis
+                </button>
+              </div>
 
-      {/* Tooltip card */}
-      <div style={{ ...tooltipStyle, animation: 'fadeIn 0.2s ease' }}>
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '22px 22px 18px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-        }}>
-          {/* Progress */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-            {STEPS.map((_, i) => (
-              <div key={i} style={{
-                flex: 1, height: 3, borderRadius: 2,
-                background: i <= step ? 'var(--accent)' : 'var(--border)',
-                transition: 'background 0.2s',
-              }} />
-            ))}
-          </div>
+              {/* Plan selector */}
+              <div style={{ display: 'flex', gap: 5 }}>
+                {(Object.entries(PLAN_CONFIG) as [Plan, typeof PLAN_CONFIG.solo][]).map(([plan, cfg]) => (
+                  <button
+                    key={plan}
+                    onClick={() => setSelectedPlan(plan)}
+                    style={{
+                      flex: 1, padding: '5px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', transition: 'all 0.12s',
+                      background: selectedPlan === plan ? cfg.color : 'var(--surface-2)',
+                      color: selectedPlan === plan ? 'white' : 'var(--text-muted)',
+                      border: `1px solid ${selectedPlan === plan ? cfg.color : 'var(--border)'}`,
+                    }}
+                  >
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.2px' }}>
-            {current.title}
-          </h3>
-          <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: 18 }}>
-            {current.body}
-          </p>
+            {/* Feature list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+              {visibleFeatures.map(f => (
+                <div
+                  key={f.label}
+                  onClick={() => f.path && navigate(f.path)}
+                  style={{
+                    padding: '12px 18px', cursor: f.path ? 'pointer' : 'default',
+                    transition: 'background 0.1s', borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                  onMouseEnter={e => { if (f.path) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, flexShrink: 0 }}>{f.icon}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', flex: 1 }}>{f.label}</span>
+                    {f.badge && (
+                      <span style={{ fontSize: 9.5, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', padding: '1px 6px', borderRadius: 20, border: '1px solid rgba(167,139,250,0.25)', flexShrink: 0 }}>{f.badge}</span>
+                    )}
+                    {f.path && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>→</span>}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55, paddingLeft: 22 }}>
+                    {f.desc}
+                  </p>
+                </div>
+              ))}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button
-              onClick={onEnd}
-              style={{ background: 'none', border: 'none', fontSize: 12.5, color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-            >
-              Passer le tour
-            </button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {!isFirst && (
-                <button onClick={prev} style={ghostBtn}>←</button>
+              {/* Locked features hint */}
+              {selectedPlan !== 'setup' && (
+                <div style={{ margin: '10px 14px', padding: '12px 14px', borderRadius: 10, background: 'rgba(124,92,252,0.06)', border: '1px solid rgba(124,92,252,0.15)' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>
+                    ✦ {selectedPlan === 'solo' ? '6' : '5'} features Premium IA non incluses
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Copilote d'appel, transcription, assistant vocal, récap matinal…
+                  </div>
+                  <button
+                    onClick={() => setSelectedPlan('setup')}
+                    style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                  >
+                    Voir le plan Premium →
+                  </button>
+                </div>
               )}
-              <button onClick={next} style={primaryBtn}>
-                {isLast ? 'Laisser un retour →' : 'Suivant →'}
-              </button>
+            </div>
+
+            {/* Footer CTA */}
+            <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+              <a
+                href="mailto:tim.baron.35@gmail.com?subject=Orbit - Intéressé par le plan"
+                style={{
+                  display: 'block', textAlign: 'center', padding: '10px', borderRadius: 9,
+                  fontSize: 13, fontWeight: 700, color: 'white', textDecoration: 'none',
+                  background: planCfg.color,
+                  boxShadow: `0 4px 14px ${planCfg.color}40`,
+                }}
+              >
+                Démarrer avec {planCfg.label} →
+              </a>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 8 }}>{planCfg.price}</div>
+            </div>
+          </>
+        )}
+
+        {/* Collapsed state */}
+        {!guideOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 60 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+              Guide
             </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Offset main content when guide is open */}
+      <style>{`
+        .demo-main { margin-right: ${guideOpen ? '300px' : '44px'} !important; transition: margin-right 0.2s; }
+      `}</style>
     </>
   );
 }
-
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0,
-  background: 'rgba(0,0,0,0.6)',
-  zIndex: 1000,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  backdropFilter: 'blur(4px)',
-};
-
-const cardStyle: React.CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 16,
-  padding: '40px 36px',
-  maxWidth: 420, width: '100%',
-  textAlign: 'center',
-  boxShadow: '0 30px 80px rgba(0,0,0,0.4)',
-};
-
-const primaryBtn: React.CSSProperties = {
-  padding: '9px 18px', borderRadius: 8, fontSize: 13.5, fontWeight: 600,
-  background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer',
-};
-
-const ghostBtn: React.CSSProperties = {
-  padding: '9px 14px', borderRadius: 8, fontSize: 13.5, fontWeight: 500,
-  background: 'transparent', color: 'var(--text-dim)',
-  border: '1px solid var(--border)', cursor: 'pointer',
-};
