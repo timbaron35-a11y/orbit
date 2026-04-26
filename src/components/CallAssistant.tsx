@@ -177,22 +177,27 @@ export default function CallAssistant({ prospect, onClose, onSaved }: Props) {
       let stream: MediaStream;
 
       if (captureMode === 'browser') {
-        const [micStream, displayStream] = await Promise.all([
-          navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
-          navigator.mediaDevices.getDisplayMedia({ audio: true, video: false }),
-        ]);
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+        // getDisplayMedia requires video:true on most browsers — we stop video tracks immediately
+        let displayStream: MediaStream | null = null;
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          displayStream.getVideoTracks().forEach(t => t.stop());
+        } catch {
+          // User cancelled or not supported — fall back to mic only
+        }
 
         const ctx = new AudioContext();
         const dest = ctx.createMediaStreamDestination();
         ctx.createMediaStreamSource(micStream).connect(dest);
-        if (displayStream.getAudioTracks().length > 0) {
+        if (displayStream && displayStream.getAudioTracks().length > 0) {
           ctx.createMediaStreamSource(displayStream).connect(dest);
         }
         stream = dest.stream;
 
-        // Keep original tracks alive for stopping
-        const origTracks = [...micStream.getTracks(), ...displayStream.getTracks()];
-        stream.getTracks()[0].addEventListener('ended', () => origTracks.forEach(t => t.stop()));
+        const origTracks = [...micStream.getTracks(), ...(displayStream?.getTracks() ?? [])];
+        stream.getTracks()[0]?.addEventListener('ended', () => origTracks.forEach(t => t.stop()));
       } else {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
@@ -207,7 +212,7 @@ export default function CallAssistant({ prospect, onClose, onSaved }: Props) {
         }
       };
 
-      mr.start(8000); // chunk every 8s
+      mr.start(6000); // chunk every 6s
       startTimeRef.current = Date.now();
       setPhase('active');
 
@@ -215,8 +220,8 @@ export default function CallAssistant({ prospect, onClose, onSaved }: Props) {
         setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
       }, 1000);
 
-      // Analyze every 20s
-      analyzeTimerRef.current = setInterval(runAnalysis, 20000);
+      // Analyze every 10s
+      analyzeTimerRef.current = setInterval(runAnalysis, 10000);
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur';
@@ -438,8 +443,9 @@ export default function CallAssistant({ prospect, onClose, onSaved }: Props) {
 
           {captureMode === 'browser' && (
             <div style={{ padding: '10px 12px', borderRadius: 9, background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: '#f59e0b', lineHeight: 1.5 }}>
-                📌 Chrome demandera de <strong>partager un onglet avec audio</strong> — sélectionne l'onglet Meet/Teams.
+              <div style={{ fontSize: 12, color: '#f59e0b', lineHeight: 1.6 }}>
+                📌 Chrome va demander de <strong>partager un onglet</strong> — coche "Partager l'audio de l'onglet" puis sélectionne ton onglet Meet/Teams.<br/>
+                <span style={{ opacity: 0.8 }}>Si l'audio système n'est pas disponible, le micro seul sera utilisé.</span>
               </div>
             </div>
           )}
