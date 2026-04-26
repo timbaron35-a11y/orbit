@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const mp3 = await openai.audio.speech.create({
     model: 'tts-1',
     voice: 'nova',
-    input: text.slice(0, 500),
+    input: text.slice(0, 1500),
     speed: 1.05,
   });
 

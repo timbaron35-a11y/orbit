@@ -13,25 +13,22 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   const { user } = useAuth();
   const blobUrlRef = useRef<string | null>(null);
   const readyRef = useRef(ready);
-  const preparedRef = useRef(false);
 
-  // Garde readyRef à jour
   useEffect(() => { readyRef.current = ready; }, [ready]);
 
-  // Prépare l'audio dès que les conditions sont remplies
   useEffect(() => {
     if (!morningRecap || plan !== 'setup' || !user) return;
-    if (preparedRef.current) return;
     if (localStorage.getItem(RECAP_KEY) === new Date().toDateString()) return;
 
-    preparedRef.current = true;
+    let active = true;
 
     (async () => {
       try {
         const firstName = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || '';
         const snap = await getDocs(collection(db, 'users', user.uid, 'prospects'));
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
+        if (!active) return;
 
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
         const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
 
         const reminders = all.filter(p => {
@@ -81,18 +78,19 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: parts.join(' ') }),
         });
-        if (!res.ok) return;
+        if (!active || !res.ok) return;
 
         const blob = await res.blob();
-        blobUrlRef.current = URL.createObjectURL(blob);
+        if (!active) return;
 
-        // Joue immédiatement si splash déjà fermé, sinon attend
+        blobUrlRef.current = URL.createObjectURL(blob);
         if (readyRef.current) playAudio();
       } catch { /* silencieux */ }
     })();
+
+    return () => { active = false; };
   }, [morningRecap, plan, user]);
 
-  // Joue dès que splash fermé, si audio prêt
   useEffect(() => {
     if (ready && blobUrlRef.current) playAudio();
   }, [ready]);
@@ -100,11 +98,11 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   const playAudio = () => {
     const url = blobUrlRef.current;
     if (!url) return;
-    blobUrlRef.current = null; // évite double play
+    blobUrlRef.current = null;
+    localStorage.setItem(RECAP_KEY, new Date().toDateString());
     const audio = new Audio(url);
     audio.onended = () => URL.revokeObjectURL(url);
     audio.play().catch(() => {});
-    localStorage.setItem(RECAP_KEY, new Date().toDateString());
   };
 
   return null;
