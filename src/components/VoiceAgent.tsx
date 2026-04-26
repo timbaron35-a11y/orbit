@@ -48,7 +48,7 @@ export default function VoiceAgent() {
   const wakeRef = useRef<any>(null);
 
   const { workspaceUid } = useWorkspace();
-  const { plan, agentVocalOnly } = useTheme();
+  const { plan, agentVocalOnly, agentWakeWord } = useTheme();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -85,6 +85,7 @@ export default function VoiceAgent() {
 
   // Wake word "orbit"
   useEffect(() => {
+    if (!agentWakeWord) return;
     const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     if (!SR) return;
 
@@ -125,7 +126,7 @@ export default function VoiceAgent() {
       sr.onend = null;
       try { sr.stop(); } catch { /* ok */ }
     };
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [agentWakeWord]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
