@@ -48,7 +48,7 @@ const STATUSES: ProspectStatus[] = ['nouveau', 'contacté', 'devis', 'signé', '
 
 export default function Team() {
   const { user } = useAuth();
-  const { workspaceUid, isOwn, myCollaborators, plan } = useWorkspace() as ReturnType<typeof useWorkspace> & { plan?: string };
+  const { workspaceUid, isOwn, myCollaborators } = useWorkspace();
   const { plan: themePlan } = useTheme();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
