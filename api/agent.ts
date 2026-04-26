@@ -112,7 +112,7 @@ Quand tu effectues une action, confirme-la brièvement. Si tu ne comprends pas, 
     const msg = response.choices[0].message;
 
     if (msg.tool_calls?.length) {
-      const call = msg.tool_calls[0];
+      const call = msg.tool_calls[0] as any;
       const args = JSON.parse(call.function.arguments);
 
       // Get confirmation message
@@ -130,7 +130,7 @@ Quand tu effectues une action, confirme-la brièvement. Si tu ne comprends pas, 
 
       return res.json({
         message: confirmRes.choices[0].message.content,
-        action: { type: call.function.name, args },
+        action: { type: call.function.name as string, args },
       });
     }
 
