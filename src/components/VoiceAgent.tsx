@@ -39,6 +39,7 @@ export default function VoiceAgent() {
   const { workspaceUid } = useWorkspace();
   const { plan } = useTheme();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,11 +57,23 @@ export default function VoiceAgent() {
   }, [messages]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 150);
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+      // Pré-acquisition du micro dès l'ouverture du panel
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(s => { streamRef.current = s; })
+        .catch(() => {});
+    } else {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
   }, [open]);
 
   useEffect(() => {
-    return () => { mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop()); };
+    return () => {
+      mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
   }, []);
 
   const executeAction = useCallback(async (action: { type: string; args: Record<string, unknown> }) => {
@@ -117,13 +130,15 @@ export default function VoiceAgent() {
   };
 
   const startRecording = async () => {
-    setMicState('recording'); // feedback visuel immédiat
+    setMicState('recording');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Utilise le stream pré-acquis si disponible, sinon en demande un nouveau
+      const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
       chunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.start(1000);
+      mr.start(100); // timeslice court pour capturer dès le début
       mediaRecorderRef.current = mr;
     } catch {
       setMicState('idle');
