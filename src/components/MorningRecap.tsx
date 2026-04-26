@@ -15,6 +15,7 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   const audioBlobUrl = useRef<string | null>(null);
   const fetchDone = useRef(false);
   const played = useRef(false);
+  const readyRef = useRef(false);
 
   // Étape 1 — dès que les conditions sont connues, on prépare l'audio en arrière-plan
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
         audioBlobUrl.current = URL.createObjectURL(blob);
 
         // Si le splash est déjà fini, on joue immédiatement
-        if (ready) playAudio();
+        if (readyRef.current) playAudio();
       } catch { /* silencieux */ }
     };
 
@@ -109,6 +110,7 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   // Étape 2 — dès que le splash est fermé, on joue (si l'audio est prêt)
   useEffect(() => {
     if (!ready) return;
+    readyRef.current = true;
     if (audioBlobUrl.current) playAudio();
   }, [ready]);
 

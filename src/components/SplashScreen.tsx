@@ -1,10 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const DURATION = 9000;
 
 export default function SplashScreen({ onDone }: { onDone: () => void }) {
   const { settings } = useTheme();
+  const { user } = useAuth();
+  const firstName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState(0); // 0→1→2→3 stagger
   const [leaving, setLeaving] = useState(false);
@@ -121,6 +124,19 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
         }}>
           {tagline}
         </div>
+
+        {/* Bienvenue */}
+        {firstName && (
+          <div style={{
+            fontSize: 13.5, color: 'rgba(196,181,253,0.5)',
+            fontWeight: 400, letterSpacing: '0.04em',
+            opacity: phase >= 3 ? 1 : 0,
+            transform: phase >= 3 ? 'translateY(0)' : 'translateY(6px)',
+            transition: 'all 0.7s ease 0.15s',
+          }}>
+            Bienvenue, {firstName}
+          </div>
+        )}
       </div>
 
       {/* Glow dot under name */}
