@@ -9,6 +9,12 @@ import { tsToDate, daysSince } from '../types';
 const RECAP_KEY = 'morningRecapDate';
 const LOG = (...args: unknown[]) => console.log('[MorningRecap]', ...args);
 
+// Unlock audio context on first user interaction so audio.play() works without a direct gesture
+function unlockAudio() {
+  const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+  ctx.resume().then(() => ctx.close());
+}
+
 export default function MorningRecap({ ready }: { ready: boolean }) {
   const { morningRecap, plan } = useTheme();
   const { user } = useAuth();
@@ -16,6 +22,17 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   const readyRef = useRef(ready);
 
   LOG('render', { morningRecap, plan, user: user?.uid, ready });
+
+  // Unlock audio on the very first user interaction (e.g. clicking the splash screen)
+  useEffect(() => {
+    const handler = () => { unlockAudio(); };
+    document.addEventListener('click', handler, { once: true });
+    document.addEventListener('touchend', handler, { once: true });
+    return () => {
+      document.removeEventListener('click', handler);
+      document.removeEventListener('touchend', handler);
+    };
+  }, []);
 
   useEffect(() => { readyRef.current = ready; }, [ready]);
 
