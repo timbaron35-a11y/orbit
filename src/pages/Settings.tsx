@@ -446,6 +446,29 @@ export default function Settings() {
                 Reçois chaque lundi à 8h un rapport IA avec score pipeline, prévision CA et actions prioritaires.
               </div>
             </div>
+            {settings.weeklyReport && (
+              <button
+                onClick={async () => {
+                  if (!user) return;
+                  showToast('Envoi en cours…', 'info');
+                  const res = await fetch('/api/weekly-report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid: user.uid, email: user.email }),
+                  });
+                  const data = await res.json();
+                  if (data.ok) showToast('Rapport envoyé — vérifie ta boîte mail');
+                  else showToast(`Erreur : ${data.reason ?? data.error}`, 'error');
+                }}
+                style={{
+                  fontSize: 11.5, color: 'var(--text-muted)', background: 'transparent',
+                  border: '1px solid var(--border)', borderRadius: 7,
+                  padding: '4px 10px', cursor: 'pointer', marginLeft: 12, whiteSpace: 'nowrap',
+                }}
+              >
+                Tester
+              </button>
+            )}
             <button
               onClick={async () => {
                 const next = { ...settings, weeklyReport: !settings.weeklyReport };

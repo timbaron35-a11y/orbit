@@ -354,73 +354,84 @@ function buildEmail(params: {
 </html>`;
 }
 
+async function sendReportForUser(uid: string, forceEmail?: string) {
+  const db = getDb();
+  const userRef = db.collection('users').doc(uid);
+
+  const settingsSnap = await userRef.collection('meta').doc('settings').get();
+  const settings = settingsSnap.data() ?? {};
+
+  let userEmail: string | undefined = forceEmail;
+  if (!userEmail) {
+    try {
+      const authUser = await getAuth().getUser(uid);
+      userEmail = authUser.email;
+    } catch { return { ok: false, reason: 'auth_error' }; }
+  }
+  if (!userEmail) return { ok: false, reason: 'no_email' };
+
+  const userName = userEmail.split('@')[0].replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, (c: string) => c.toUpperCase()).split(' ')[0];
+  const appName = settings.appName || 'Orbit';
+
+  const prospectsSnap = await userRef.collection('prospects').get();
+  const prospects: Prospect[] = prospectsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
+  if (prospects.length === 0) return { ok: false, reason: 'no_prospects' };
+
+  const now = new Date();
+  const weekLabel = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(startOfWeek(now))
+    + ' – ' + new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(now);
+
+  const stats = computeStats(prospects);
+  const score = pipelineScore(stats);
+  const narrative = await generateNarrative(stats, score, userName);
+  const html = buildEmail({ userName, appName, stats, score, narrative, weekLabel });
+
+  const emailRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY!}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: `${appName} <noreply@app-orbit.fr>`,
+      to: [userEmail],
+      subject: `📊 Ton rapport hebdo — Score ${score}/10`,
+      html,
+    }),
+  });
+
+  if (!emailRes.ok) return { ok: false, reason: await emailRes.text() };
+  return { ok: true };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Allow GET from cron or POST with secret
   const secret = process.env.CRON_SECRET;
   const authHeader = req.headers['authorization'];
   if (secret && authHeader !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Test mode: POST with { uid, email }
+  if (req.method === 'POST') {
+    const { uid, email } = req.body as { uid?: string; email?: string };
+    if (!uid) return res.status(400).json({ error: 'uid requis' });
+    const result = await sendReportForUser(uid, email);
+    return res.status(result.ok ? 200 : 500).json(result);
+  }
+
+  // Cron mode: GET — send to all users with weeklyReport enabled
   try {
     const db = getDb();
-
-    // Get all users with weeklyReport enabled
     const usersSnap = await db.collection('users').listDocuments();
     let sent = 0; let skipped = 0;
 
-    const now = new Date();
-    const weekLabel = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(
-      startOfWeek(now)
-    ) + ' – ' + new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(now);
-
     for (const userRef of usersSnap) {
       const settingsSnap = await userRef.collection('meta').doc('settings').get();
-      const settings = settingsSnap.data();
-      if (!settings?.weeklyReport) { skipped++; continue; }
-
-      let userEmail: string | undefined;
-      try {
-        const authUser = await getAuth().getUser(userRef.id);
-        userEmail = authUser.email;
-      } catch { skipped++; continue; }
-      if (!userEmail) { skipped++; continue; }
-
-      const userName = userEmail.split('@')[0].replace(/[._-]/g, ' ')
-        .replace(/\b\w/g, (c: string) => c.toUpperCase()).split(' ')[0];
-      const appName = settings.appName || 'Orbit';
-
-      // Fetch prospects
-      const prospectsSnap = await userRef.collection('prospects').get();
-      const prospects: Prospect[] = prospectsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
-
-      if (prospects.length === 0) { skipped++; continue; }
-
-      const stats = computeStats(prospects);
-      const score = pipelineScore(stats);
-      const narrative = await generateNarrative(stats, score, userName);
-      const html = buildEmail({ userName, appName, stats, score, narrative, weekLabel });
-
-      const emailRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY!}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: `${appName} <noreply@app-orbit.fr>`,
-          to: [userEmail],
-          subject: `📊 Ton rapport hebdo — Score ${score}/10`,
-          html,
-        }),
-      });
-
-      if (emailRes.ok) sent++; else skipped++;
+      if (!settingsSnap.data()?.weeklyReport) { skipped++; continue; }
+      const result = await sendReportForUser(userRef.id);
+      if (result.ok) sent++; else skipped++;
     }
 
     return res.status(200).json({ sent, skipped });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erreur inconnue';
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Erreur inconnue' });
   }
 }
