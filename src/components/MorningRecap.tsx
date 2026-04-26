@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTheme } from '../contexts/ThemeContext';
-import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useAuth } from '../contexts/AuthContext';
 import type { Prospect } from '../types';
 import { tsToDate, daysSince } from '../types';
 
@@ -10,30 +10,28 @@ const RECAP_KEY = 'morningRecapDate';
 
 export default function MorningRecap({ ready }: { ready: boolean }) {
   const { morningRecap, plan } = useTheme();
-  const { workspaceUid } = useWorkspace();
+  const { user } = useAuth();
   const doneRef = useRef(false);
 
   useEffect(() => {
-    if (!ready || !morningRecap || plan !== 'setup' || !workspaceUid || doneRef.current) return;
-
-    const today = new Date().toDateString();
-    if (localStorage.getItem(RECAP_KEY) === today) return;
+    if (!ready || !morningRecap || plan !== 'setup' || !user || doneRef.current) return;
+    if (localStorage.getItem(RECAP_KEY) === new Date().toDateString()) return;
 
     doneRef.current = true;
 
-    const run = async () => {
+    const play = async () => {
       try {
-        const snap = await getDocs(collection(db, 'users', workspaceUid, 'prospects'));
+        const snap = await getDocs(collection(db, 'users', user.uid, 'prospects'));
         const prospects = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
 
         const remindersToday = prospects.filter(p => {
           if (!p.reminderDate) return false;
           const d = tsToDate(p.reminderDate);
           d.setHours(0, 0, 0, 0);
-          return d.getTime() === today.getTime();
+          return d.getTime() === todayMidnight.getTime();
         });
 
         const inactive = prospects.filter(p =>
@@ -46,38 +44,25 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
         const totalCA = signed.reduce((s, p) => s + (p.amount || 0), 0);
 
         const parts: string[] = [];
-
         const hour = new Date().getHours();
-        const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bonsoir' : 'Bonsoir';
-        parts.push(`${greeting} ! Voici ton récap du jour.`);
+        parts.push(`${hour < 12 ? 'Bonjour' : 'Bonsoir'} ! Voici ton récap du jour.`);
 
         if (remindersToday.length > 0) {
           const names = remindersToday.slice(0, 3).map(p => p.name).join(', ');
-          parts.push(`Tu as ${remindersToday.length} rappel${remindersToday.length > 1 ? 's' : ''} aujourd'hui : ${names}.`);
+          parts.push(`${remindersToday.length} rappel${remindersToday.length > 1 ? 's' : ''} aujourd'hui : ${names}.`);
         } else {
           parts.push("Aucun rappel prévu aujourd'hui.");
         }
 
-        if (hotDeals.length > 0) {
-          parts.push(`${hotDeals.length} devis en attente de réponse.`);
-        }
-
-        if (inactive.length > 0) {
-          parts.push(`${inactive.length} prospect${inactive.length > 1 ? 's' : ''} sans contact depuis plus de 7 jours.`);
-        }
-
-        if (totalCA > 0) {
-          parts.push(`Ton chiffre d'affaires signé est de ${totalCA.toLocaleString('fr-FR')} euros.`);
-        }
-
+        if (hotDeals.length > 0) parts.push(`${hotDeals.length} devis en attente de réponse.`);
+        if (inactive.length > 0) parts.push(`${inactive.length} prospect${inactive.length > 1 ? 's' : ''} sans contact depuis plus de 7 jours.`);
+        if (totalCA > 0) parts.push(`Chiffre d'affaires signé : ${totalCA.toLocaleString('fr-FR')} euros.`);
         parts.push('Bonne journée !');
-
-        const text = parts.join(' ');
 
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: parts.join(' ') }),
         });
         if (!res.ok) return;
 
@@ -85,14 +70,14 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audio.onended = () => URL.revokeObjectURL(url);
-        audio.play();
+        await audio.play();
 
         localStorage.setItem(RECAP_KEY, new Date().toDateString());
       } catch { /* silencieux */ }
     };
 
-    run();
-  }, [ready, morningRecap, plan, workspaceUid]);
+    play();
+  }, [ready, morningRecap, plan, user]);
 
   return null;
 }
