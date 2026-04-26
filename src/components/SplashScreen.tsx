@@ -29,7 +29,7 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
     const iv = setInterval(() => {
       const p = Math.min((Date.now() - start) / DURATION, 1);
       setProgress(p);
-      if (p >= 1) { clearInterval(iv); dismiss(); }
+      if (p >= 1) clearInterval(iv); // barre complète mais on n'auto-dismiss pas
     }, 50);
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearInterval(iv); };
