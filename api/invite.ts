@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!toEmail || !ownerName) return res.status(400).json({ error: 'Paramètres manquants' });
 
-  const appUrl = 'https://orbit-six-indol.vercel.app';
+  const appUrl = 'https://app-orbit.fr';
   const name = appName || 'Orbit';
 
   const html = `<!DOCTYPE html>
