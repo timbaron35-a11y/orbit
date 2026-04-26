@@ -128,36 +128,46 @@ export default function ProspectDetail() {
   }
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 920 }}>
-      <button onClick={() => navigate('/clients')} style={backBtnStyle}>← Clients</button>
+    <div style={{ padding: '32px 40px', maxWidth: 960 }}>
+      <button
+        onClick={() => navigate('/clients')}
+        style={backBtnStyle}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+      >← Prospects</button>
 
       {/* Header */}
       <div style={{
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-        marginTop: 20, marginBottom: 32,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 24, marginBottom: 32,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
-            width: 48, height: 48, borderRadius: 12,
-            background: STATUS_BG[prospect.status],
+            width: 52, height: 52, borderRadius: 14,
+            background: `linear-gradient(135deg, ${STATUS_BG[prospect.status]}, ${STATUS_COLOR[prospect.status]}22)`,
+            border: `1px solid ${STATUS_COLOR[prospect.status]}40`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, fontWeight: 700, color: STATUS_COLOR[prospect.status],
+            boxShadow: `0 4px 16px ${STATUS_COLOR[prospect.status]}20`,
           }}>
             {prospect.name.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.3px' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px' }}>
               {prospect.name}
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
               <span style={{
-                padding: '3px 9px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                 color: STATUS_COLOR[prospect.status], background: STATUS_BG[prospect.status],
+                border: `1px solid ${STATUS_COLOR[prospect.status]}30`,
               }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: STATUS_COLOR[prospect.status], flexShrink: 0 }} />
                 {STATUS_LABEL[prospect.status]}
               </span>
               {prospect.amount > 0 && (
-                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+                <span style={{ fontSize: 13.5, color: 'var(--accent)', fontWeight: 700 }}>
                   {formatCurrency(prospect.amount)}
                 </span>
               )}
@@ -170,10 +180,13 @@ export default function ProspectDetail() {
         <button
           onClick={() => setEditOpen(true)}
           style={{
-            padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600,
             background: 'var(--surface)', border: '1px solid var(--border)',
-            color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6,
+            color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 7,
+            cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
           }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
         >
           ✏️ Modifier
         </button>
@@ -702,8 +715,8 @@ function MenuItem({ onClick, danger, children }: {
 function SectionLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
-      fontSize: 11.5, fontWeight: 500, color: 'var(--text-muted)',
-      textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14,
+      fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+      textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
       ...style,
     }}>
       {children}
@@ -722,7 +735,8 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 const card: React.CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)',
-  borderRadius: 12, padding: '18px 20px',
+  borderRadius: 14, padding: '18px 20px',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
 };
 
 const backBtnStyle: React.CSSProperties = {
@@ -730,4 +744,5 @@ const backBtnStyle: React.CSSProperties = {
   color: 'var(--text-muted)', fontSize: 13, fontWeight: 500,
   padding: 0, cursor: 'pointer',
   display: 'inline-flex', alignItems: 'center', gap: 4,
+  transition: 'color 0.15s',
 };

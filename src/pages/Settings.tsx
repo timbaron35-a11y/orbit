@@ -130,7 +130,7 @@ export default function Settings() {
     <div style={{ padding: '32px 36px', maxWidth: 640 }}>
       <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.3px' }}>Paramètres</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.5px' }}>Paramètres</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 4 }}>
             Personnalisez l'apparence de votre CRM.
           </p>
@@ -533,8 +533,11 @@ export default function Settings() {
             color: isDirty ? 'white' : 'var(--text-muted)',
             border: 'none', cursor: isDirty ? 'pointer' : 'default',
             opacity: saving ? 0.7 : 1,
-            transition: 'background 0.15s, opacity 0.15s',
+            transition: 'opacity 0.15s, box-shadow 0.15s',
+            boxShadow: isDirty ? '0 4px 14px rgba(124,92,252,0.35)' : 'none',
           }}
+          onMouseEnter={e => { if (isDirty && !saving) e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,92,252,0.55)'; }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = isDirty ? '0 4px 14px rgba(124,92,252,0.35)' : 'none'; }}
         >
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>

@@ -60,12 +60,6 @@ function TeamStatsCard({ prospects, collaborators, ownerEmail }: { prospects: Pr
   );
 }
 
-const METRIC_ICONS: Record<string, string> = {
-  prospects: '◎',
-  conversion: '⟳',
-  relances: '◷',
-  ca: '◈',
-};
 
 function MetricCard({ label, value, sub, color, icon, accent }: {
   label: string; value: string | number; sub?: string;

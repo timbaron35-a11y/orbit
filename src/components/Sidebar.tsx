@@ -70,7 +70,7 @@ const buildNavItems = (reminderCount: number) => [
 
 export default function Sidebar() {
   const { user, signOut } = useAuth();
-  const { workspaceUid, isOwn, sharedWorkspaces, pendingInvitations, switchWorkspace, acceptInvitation, declineInvitation } = useWorkspace();
+  const { workspaceUid, sharedWorkspaces, pendingInvitations, switchWorkspace, acceptInvitation, declineInvitation } = useWorkspace();
   const { settings } = useTheme();
   const { scheme, toggle } = useColorScheme();
   const { showToast } = useToast();

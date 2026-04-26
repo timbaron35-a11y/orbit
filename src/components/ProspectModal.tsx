@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, doc, Timestamp, deleteField } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Prospect, ProspectStatus } from '../types';
-import { STATUS_LABEL, STATUS_COLOR } from '../types';
+import { STATUS_LABEL, STATUS_COLOR, STATUS_BG } from '../types';
 import { tsToDate } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -104,6 +104,8 @@ export default function ProspectModal({ prospect, onClose }: Props) {
     onClose();
   };
 
+  const initials = name.trim().slice(0, 2).toUpperCase() || '??';
+
   return (
     <>
       {/* Backdrop */}
@@ -111,9 +113,9 @@ export default function ProspectModal({ prospect, onClose }: Props) {
         onClick={onClose}
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.55)',
+          background: 'rgba(0,0,0,0.6)',
           zIndex: 200,
-          backdropFilter: 'blur(3px)',
+          backdropFilter: 'blur(4px)',
           animation: 'fadeIn 0.15s ease',
         }}
       />
@@ -121,42 +123,66 @@ export default function ProspectModal({ prospect, onClose }: Props) {
       {/* Drawer */}
       <div style={{
         position: 'fixed', right: 0, top: 0, bottom: 0,
-        width: 420,
-        background: 'var(--surface)',
+        width: 440,
+        background: 'var(--bg)',
         borderLeft: '1px solid var(--border)',
         zIndex: 201,
         display: 'flex',
         flexDirection: 'column',
         animation: 'slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+        boxShadow: '-20px 0 60px rgba(0,0,0,0.4)',
       }}>
+
+        {/* Top accent line */}
+        <div style={{ height: 2, background: `linear-gradient(90deg, var(--accent), #a78bfa, transparent)`, flexShrink: 0 }} />
 
         {/* Header */}
         <div style={{
-          padding: '22px 24px',
+          padding: '20px 24px',
           borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', gap: 14,
+          flexShrink: 0,
         }}>
-          <div>
-            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.2px' }}>
+          {/* Avatar */}
+          <div style={{
+            width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+            background: `linear-gradient(135deg, ${STATUS_BG[status]}, ${STATUS_COLOR[status]}22)`,
+            border: `1px solid ${STATUS_COLOR[status]}40`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 700, color: STATUS_COLOR[status],
+          }}>
+            {initials}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {isEdit ? prospect.name : 'Nouveau prospect'}
             </h2>
             {isEdit && (
-              <span style={{
-                fontSize: 12, marginTop: 3, display: 'inline-block',
-                color: STATUS_COLOR[prospect.status],
+              <div style={{
+                marginTop: 3,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '2px 8px', borderRadius: 20,
+                background: STATUS_BG[prospect.status],
+                fontSize: 11.5, fontWeight: 600, color: STATUS_COLOR[prospect.status],
               }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: STATUS_COLOR[prospect.status], flexShrink: 0 }} />
                 {STATUS_LABEL[prospect.status]}
-              </span>
+              </div>
             )}
           </div>
+
           <button
             onClick={onClose}
             style={{
-              background: 'var(--surface-2)', border: '1px solid var(--border)',
-              borderRadius: 8, width: 32, height: 32,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 8, width: 32, height: 32, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-muted)', fontSize: 18, lineHeight: 1,
+              color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, cursor: 'pointer',
+              transition: 'border-color 0.15s, color 0.15s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
           >×</button>
         </div>
 
@@ -203,19 +229,31 @@ export default function ProspectModal({ prospect, onClose }: Props) {
             />
           </Field>
 
+          {/* Status pills */}
           <Field label="Statut">
-            <select
-              className="orbit-input"
-              value={status}
-              onChange={e => setStatus(e.target.value as ProspectStatus)}
-              style={{ color: STATUS_COLOR[status] }}
-            >
-              {STATUSES.map(s => (
-                <option key={s} value={s} style={{ color: 'var(--text)' }}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {STATUSES.map(s => {
+                const active = status === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(s)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                      cursor: 'pointer', transition: 'all 0.15s',
+                      background: active ? STATUS_BG[s] : 'transparent',
+                      color: active ? STATUS_COLOR[s] : 'var(--text-muted)',
+                      border: active ? `1.5px solid ${STATUS_COLOR[s]}50` : '1.5px solid var(--border)',
+                      boxShadow: active ? `0 0 8px ${STATUS_COLOR[s]}30` : 'none',
+                    }}
+                    onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = STATUS_COLOR[s]; e.currentTarget.style.color = STATUS_COLOR[s]; } }}
+                    onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
 
           <Field label="Montant estimé (€)">
@@ -252,17 +290,21 @@ export default function ProspectModal({ prospect, onClose }: Props) {
                 <button
                   onClick={() => setReminderDate('')}
                   style={{
-                    background: 'none', border: 'none',
-                    color: 'var(--text-muted)', fontSize: 18, lineHeight: 1,
-                    padding: '4px 6px', borderRadius: 6, flexShrink: 0,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 7, color: 'var(--text-muted)', fontSize: 16, lineHeight: 1,
+                    padding: '6px 8px', flexShrink: 0, cursor: 'pointer',
+                    transition: 'border-color 0.15s, color 0.15s',
                   }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                   title="Supprimer le rappel"
                 >×</button>
               )}
             </div>
             {reminderDate && (
-              <div style={{ fontSize: 11.5, color: '#f59e0b', marginTop: 4 }}>
-                🔔 Rappel le {new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(new Date(reminderDate + 'T12:00:00'))}
+              <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b80', flexShrink: 0 }} />
+                Rappel le {new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(new Date(reminderDate + 'T12:00:00'))}
               </div>
             )}
           </Field>
@@ -303,6 +345,8 @@ export default function ProspectModal({ prospect, onClose }: Props) {
           padding: '14px 24px',
           borderTop: '1px solid var(--border)',
           display: 'flex', gap: 8, alignItems: 'center',
+          background: 'var(--bg)',
+          flexShrink: 0,
         }}>
           {isViewer && (
             <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -315,8 +359,11 @@ export default function ProspectModal({ prospect, onClose }: Props) {
               style={{
                 padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
                 background: 'rgba(239,68,68,0.08)', color: '#ef4444',
-                border: '1px solid rgba(239,68,68,0.2)',
+                border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer',
+                transition: 'background 0.15s, border-color 0.15s',
               }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
             >
               Supprimer
             </button>
@@ -325,10 +372,17 @@ export default function ProspectModal({ prospect, onClose }: Props) {
           {!isViewer && confirmDelete && (
             <>
               <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flex: 1 }}>Supprimer définitivement ?</span>
-              <button onClick={() => setConfirmDelete(false)} style={ghostBtn}>Non</button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                style={ghostBtn}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+              >Non</button>
               <button
                 onClick={handleDelete}
                 style={{ ...ghostBtn, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 Confirmer
               </button>
@@ -338,18 +392,26 @@ export default function ProspectModal({ prospect, onClose }: Props) {
           {!isViewer && !confirmDelete && (
             <>
               <div style={{ flex: 1 }} />
-              <button onClick={onClose} style={ghostBtn}>Annuler</button>
+              <button
+                onClick={onClose}
+                style={ghostBtn}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+              >Annuler</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}
                 style={{
-                  padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                  padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 600,
                   background: name.trim() ? 'var(--accent)' : 'var(--surface-2)',
                   color: name.trim() ? 'white' : 'var(--text-muted)',
-                  border: 'none',
+                  border: 'none', cursor: name.trim() ? 'pointer' : 'default',
                   opacity: saving ? 0.7 : 1,
-                  transition: 'background 0.15s, opacity 0.15s',
+                  transition: 'opacity 0.15s, box-shadow 0.15s',
+                  boxShadow: name.trim() ? '0 4px 14px rgba(124,92,252,0.35)' : 'none',
                 }}
+                onMouseEnter={e => { if (name.trim() && !saving) e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,92,252,0.55)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = name.trim() ? '0 4px 14px rgba(124,92,252,0.35)' : 'none'; }}
               >
                 {saving ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
               </button>
@@ -364,7 +426,7 @@ export default function ProspectModal({ prospect, onClose }: Props) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <label style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </label>
       {children}
@@ -391,13 +453,12 @@ function TagEditor({ tags, setTags, tagInput, setTagInput }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Selected tags */}
       {tags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {tags.map(tag => (
             <span key={tag} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+              padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
               background: 'var(--accent-dim)', color: 'var(--accent)',
               border: '1px solid rgba(124,92,252,0.25)',
             }}>
@@ -408,7 +469,6 @@ function TagEditor({ tags, setTags, tagInput, setTagInput }: {
         </div>
       )}
 
-      {/* Input */}
       <input
         className="orbit-input"
         value={tagInput}
@@ -421,7 +481,6 @@ function TagEditor({ tags, setTags, tagInput, setTagInput }: {
         style={{ fontSize: 13 }}
       />
 
-      {/* Suggestions */}
       {suggestions.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {suggestions.map(tag => (
@@ -434,8 +493,8 @@ function TagEditor({ tags, setTags, tagInput, setTagInput }: {
                 border: '1px solid var(--border)', cursor: 'pointer',
                 transition: 'all 0.1s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-dim)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'var(--surface-2)'; }}
             >
               + {tag}
             </button>
@@ -449,5 +508,6 @@ function TagEditor({ tags, setTags, tagInput, setTagInput }: {
 const ghostBtn: React.CSSProperties = {
   padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
   background: 'transparent', color: 'var(--text-dim)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border)', cursor: 'pointer',
+  transition: 'border-color 0.15s, color 0.15s',
 };
