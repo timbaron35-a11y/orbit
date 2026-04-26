@@ -149,6 +149,13 @@ export default function VoiceAgent() {
     window.speechSynthesis.speak(utt);
   }, [ttsEnabled]);
 
+  const restartWakeWord = () => {
+    const sr = wakeRef.current;
+    if (!sr) return;
+    sr.onend = () => { if (wakeRef.current === sr) { try { sr.start(); } catch { /* ok */ } } };
+    try { sr.start(); } catch { /* ok */ }
+  };
+
   const stopVAD = () => {
     if (vadFrameRef.current) cancelAnimationFrame(vadFrameRef.current);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -260,9 +267,16 @@ export default function VoiceAgent() {
   }, [prospects, executeAction]);
 
   const startRecording = async () => {
+    // Pause wake word pour éviter le conflit micro
+    if (wakeRef.current) {
+      wakeRef.current.onend = null;
+      try { wakeRef.current.stop(); } catch { /* ok */ }
+    }
     setMicState('recording');
     try {
-      const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Libère le stream pré-acquis s'il existe, on en prend un propre
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
       chunksRef.current = [];
@@ -272,6 +286,7 @@ export default function VoiceAgent() {
       startVAD(stream, stopRecording);
     } catch {
       setMicState('idle');
+      restartWakeWord();
     }
   };
 
@@ -292,9 +307,11 @@ export default function VoiceAgent() {
         if (!res.ok) throw new Error(await res.text());
         const { transcript } = await res.json();
         setMicState('idle');
+        restartWakeWord();
         await sendToAgent(transcript);
       } catch {
         setMicState('idle');
+        restartWakeWord();
       }
     };
     mediaRecorderRef.current.stop();
