@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface Automation {
   id: string;
@@ -91,9 +93,15 @@ function ToggleSwitch({ active, onToggle, locked }: { active: boolean; onToggle:
 
 export default function Automations() {
   const { plan } = useTheme();
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const isSetup = plan === 'setup';
   const [automations, setAutomations] = useState(DEFAULT_AUTOMATIONS);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestText, setRequestText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
   const toggleAutomation = (id: string) => {
     if (!isSetup) { setShowUpgrade(true); return; }
@@ -246,7 +254,7 @@ export default function Automations() {
 
       {/* Add automation CTA */}
       <div
-        onClick={() => !isSetup ? setShowUpgrade(true) : null}
+        onClick={() => isSetup ? setShowRequestForm(true) : setShowUpgrade(true)}
         style={{
           marginTop: 12,
           border: `1px dashed ${isSetup ? 'var(--border)' : 'rgba(251,191,36,0.25)'}`,
@@ -274,8 +282,83 @@ export default function Automations() {
         }}
       >
         <span style={{ fontSize: 18, lineHeight: 1 }}>{isSetup ? '+' : '🔒'}</span>
-        {isSetup ? 'Créer une automation' : 'Créer une automation — Pack Setup requis'}
+        {isSetup ? 'Demander une automation personnalisée' : 'Créer une automation — Plan Premium requis'}
       </div>
+
+      {/* Request form modal */}
+      {showRequestForm && (
+        <>
+          <div onClick={() => setShowRequestForm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, backdropFilter: 'blur(4px)' }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 301, width: 460,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 18, padding: '32px',
+            boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
+          }}>
+            {requestSent ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Demande envoyée !</h2>
+                <p style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 24 }}>
+                  Votre automation sera créée et configurée dans les <strong style={{ color: 'var(--text)' }}>3 jours ouvrés</strong>.
+                </p>
+                <button onClick={() => { setShowRequestForm(false); setRequestSent(false); setRequestText(''); }} style={{ padding: '10px 24px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <>
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 6, letterSpacing: '-0.3px' }}>
+                  Demander une automation
+                </h2>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 20 }}>
+                  Décrivez ce que vous souhaitez automatiser. Nous la configurons dans les <strong style={{ color: 'var(--text)' }}>3 jours ouvrés</strong>.
+                </p>
+                <textarea
+                  value={requestText}
+                  onChange={e => setRequestText(e.target.value)}
+                  placeholder={"Ex : Quand un prospect passe en 'Signé', m'envoyer un email récap avec son nom et le montant du projet."}
+                  style={{
+                    width: '100%', minHeight: 120,
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    borderRadius: 9, color: 'var(--text)', fontSize: 13.5,
+                    padding: '12px 14px', fontFamily: 'inherit', lineHeight: 1.6,
+                    resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                  }}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                  <button onClick={() => setShowRequestForm(false)} style={{ flex: 1, padding: '10px', borderRadius: 9, fontSize: 13.5, fontWeight: 500, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                    Annuler
+                  </button>
+                  <button
+                    disabled={!requestText.trim() || sending}
+                    onClick={async () => {
+                      setSending(true);
+                      try {
+                        await fetch('/api/request-automation', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ userEmail: user?.email, description: requestText }),
+                        });
+                        setRequestSent(true);
+                      } catch {
+                        showToast('Erreur lors de l\'envoi', 'error');
+                      } finally {
+                        setSending(false);
+                      }
+                    }}
+                    style={{ flex: 1, padding: '10px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, background: requestText.trim() ? 'var(--accent)' : 'var(--surface-2)', color: requestText.trim() ? 'white' : 'var(--text-muted)', border: 'none', cursor: requestText.trim() ? 'pointer' : 'default', opacity: sending ? 0.7 : 1 }}
+                  >
+                    {sending ? '…' : 'Envoyer la demande'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Upgrade modal */}
       {showUpgrade && (
