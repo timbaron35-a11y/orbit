@@ -37,7 +37,6 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
 
   const appName = settings.appName || 'Orbit';
   const tagline = settings.tagline || 'CRM pour freelances';
-  const letters = appName.split('');
 
   return (
     <div
@@ -94,49 +93,44 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
           ✦
         </div>
 
-        {/* App name — letters stagger */}
-        <div style={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
-          {letters.map((l, i) => (
-            <span key={i} style={{
-              fontSize: 64, fontWeight: 800,
-              letterSpacing: '-2px', lineHeight: 1,
-              background: 'linear-gradient(160deg, #ffffff 0%, #e2d9ff 50%, #a78bfa 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              opacity: phase >= 2 ? 1 : 0,
-              transform: phase >= 2 ? 'translateY(0)' : 'translateY(24px)',
-              transition: `opacity 0.5s ease ${i * 0.06}s, transform 0.6s cubic-bezier(0.34,1.2,0.64,1) ${i * 0.06}s`,
-              display: 'inline-block',
-            }}>
-              {l}
-            </span>
-          ))}
-        </div>
-
-        {/* Tagline */}
-        <div style={{
-          fontSize: 13, color: 'rgba(255,255,255,0.28)',
-          letterSpacing: '0.22em', textTransform: 'uppercase',
-          opacity: phase >= 3 ? 1 : 0,
-          transform: phase >= 3 ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'all 0.7s ease',
-        }}>
-          {tagline}
-        </div>
-
-        {/* Bienvenue */}
+        {/* Bienvenue hero */}
         {firstName && (
           <div style={{
-            fontSize: 13.5, color: 'rgba(196,181,253,0.5)',
-            fontWeight: 400, letterSpacing: '0.04em',
-            opacity: phase >= 3 ? 1 : 0,
-            transform: phase >= 3 ? 'translateY(0)' : 'translateY(6px)',
-            transition: 'all 0.7s ease 0.15s',
+            fontSize: 52, fontWeight: 800,
+            letterSpacing: '-1.5px', lineHeight: 1.1,
+            background: 'linear-gradient(160deg, #ffffff 0%, #e2d9ff 50%, #a78bfa 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            opacity: phase >= 2 ? 1 : 0,
+            transform: phase >= 2 ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.34,1.2,0.64,1)',
           }}>
-            Bienvenue, {firstName}
+            Bonjour, {firstName}
           </div>
         )}
+
+        {/* App name + tagline */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          opacity: phase >= 3 ? 1 : 0,
+          transform: phase >= 3 ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'all 0.7s ease 0.1s',
+        }}>
+          <div style={{
+            fontSize: 15, fontWeight: 600,
+            color: 'rgba(196,181,253,0.6)',
+            letterSpacing: '0.1em',
+          }}>
+            {appName}
+          </div>
+          <div style={{
+            fontSize: 11, color: 'rgba(255,255,255,0.22)',
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+          }}>
+            {tagline}
+          </div>
+        </div>
       </div>
 
       {/* Glow dot under name */}

@@ -11,81 +11,68 @@ const RECAP_KEY = 'morningRecapDate';
 export default function MorningRecap({ ready }: { ready: boolean }) {
   const { morningRecap, plan } = useTheme();
   const { user } = useAuth();
+  const blobUrlRef = useRef<string | null>(null);
+  const readyRef = useRef(ready);
+  const preparedRef = useRef(false);
 
-  const audioBlobUrl = useRef<string | null>(null);
-  const fetchDone = useRef(false);
-  const played = useRef(false);
-  const readyRef = useRef(false);
+  // Garde readyRef à jour
+  useEffect(() => { readyRef.current = ready; }, [ready]);
 
-  // Étape 1 — dès que les conditions sont connues, on prépare l'audio en arrière-plan
+  // Prépare l'audio dès que les conditions sont remplies
   useEffect(() => {
-    if (!morningRecap || plan !== 'setup' || !user || fetchDone.current) return;
+    if (!morningRecap || plan !== 'setup' || !user) return;
+    if (preparedRef.current) return;
     if (localStorage.getItem(RECAP_KEY) === new Date().toDateString()) return;
 
-    fetchDone.current = true;
+    preparedRef.current = true;
 
-    const prepare = async () => {
+    (async () => {
       try {
         const firstName = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || '';
         const snap = await getDocs(collection(db, 'users', user.uid, 'prospects'));
-        const prospects = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
 
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
+        const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
 
-        const remindersToday = prospects.filter(p => {
+        const reminders = all.filter(p => {
           if (!p.reminderDate) return false;
-          const d = tsToDate(p.reminderDate);
-          d.setHours(0, 0, 0, 0);
-          return d.getTime() === todayMidnight.getTime();
+          const d = tsToDate(p.reminderDate); d.setHours(0, 0, 0, 0);
+          return d.getTime() === midnight.getTime();
         });
-
-        const inactive = prospects.filter(p =>
-          p.status !== 'signé' && p.status !== 'perdu' &&
-          daysSince(tsToDate(p.lastContact)) >= 7
-        );
-
-        const hotDeals = prospects.filter(p => p.status === 'devis');
-        const signed = prospects.filter(p => p.status === 'signé');
-        const inProgress = prospects.filter(p => p.status === 'nouveau' || p.status === 'contacté');
+        const inactive = all
+          .filter(p => p.status !== 'signé' && p.status !== 'perdu' && daysSince(tsToDate(p.lastContact)) >= 7)
+          .sort((a, b) => daysSince(tsToDate(b.lastContact)) - daysSince(tsToDate(a.lastContact)));
+        const devis = all.filter(p => p.status === 'devis');
+        const signed = all.filter(p => p.status === 'signé');
+        const inProgress = all.filter(p => p.status === 'nouveau' || p.status === 'contacté');
         const totalCA = signed.reduce((s, p) => s + (p.amount || 0), 0);
-        const potentialCA = hotDeals.reduce((s, p) => s + (p.amount || 0), 0);
+        const potentialCA = devis.reduce((s, p) => s + (p.amount || 0), 0);
 
         const hour = new Date().getHours();
         const parts: string[] = [];
 
-        parts.push(`${hour < 12 ? 'Bonjour' : 'Bonsoir'} ${firstName ? firstName + ' !' : '!'} Voici ton récap du ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`);
+        parts.push(`${hour < 12 ? 'Bonjour' : 'Bonsoir'} ${firstName} ! Voici ton récap du ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`);
 
-        if (remindersToday.length > 0) {
-          const names = remindersToday.map(p => p.name).join(', ');
-          parts.push(`Tu as ${remindersToday.length} rappel${remindersToday.length > 1 ? 's' : ''} aujourd'hui : ${names}.`);
-        } else {
+        if (reminders.length > 0)
+          parts.push(`Tu as ${reminders.length} rappel${reminders.length > 1 ? 's' : ''} aujourd'hui : ${reminders.map(p => p.name).join(', ')}.`);
+        else
           parts.push("Aucun rappel prévu aujourd'hui.");
-        }
 
-        if (hotDeals.length > 0) {
-          const names = hotDeals.slice(0, 3).map(p =>
-            `${p.name}${p.amount ? ' pour ' + p.amount.toLocaleString('fr-FR') + ' euros' : ''}`
-          ).join(', ');
-          parts.push(`${hotDeals.length} devis en attente${potentialCA > 0 ? ', soit ' + potentialCA.toLocaleString('fr-FR') + ' euros potentiels' : ''} : ${names}.`);
+        if (devis.length > 0) {
+          const names = devis.slice(0, 3).map(p => `${p.name}${p.amount ? ' pour ' + p.amount.toLocaleString('fr-FR') + ' euros' : ''}`).join(', ');
+          parts.push(`${devis.length} devis en attente${potentialCA > 0 ? ', soit ' + potentialCA.toLocaleString('fr-FR') + ' euros potentiels' : ''} : ${names}.`);
         }
 
         if (inactive.length > 0) {
-          const top = inactive
-            .sort((a, b) => daysSince(tsToDate(b.lastContact)) - daysSince(tsToDate(a.lastContact)))
-            .slice(0, 2)
-            .map(p => `${p.name}, ${daysSince(tsToDate(p.lastContact))} jours`)
-            .join(' et ');
+          const top = inactive.slice(0, 2).map(p => `${p.name}, ${daysSince(tsToDate(p.lastContact))} jours`).join(' et ');
           parts.push(`${inactive.length} prospect${inactive.length > 1 ? 's' : ''} sans contact depuis plus de 7 jours. Les plus urgents : ${top}.`);
         }
 
-        if (inProgress.length > 0) {
-          parts.push(`${inProgress.length} prospect${inProgress.length > 1 ? 's' : ''} en cours.`);
-        }
+        if (inProgress.length > 0)
+          parts.push(`${inProgress.length} prospect${inProgress.length > 1 ? 's' : ''} en cours de traitement.`);
 
-        if (totalCA > 0) {
-          parts.push(`CA signé : ${totalCA.toLocaleString('fr-FR')} euros.`);
-        }
+        if (totalCA > 0)
+          parts.push(`Chiffre d'affaires signé : ${totalCA.toLocaleString('fr-FR')} euros.`);
 
         parts.push('Bonne journée, tu vas cartonner !');
 
@@ -97,31 +84,25 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
         if (!res.ok) return;
 
         const blob = await res.blob();
-        audioBlobUrl.current = URL.createObjectURL(blob);
+        blobUrlRef.current = URL.createObjectURL(blob);
 
-        // Si le splash est déjà fini, on joue immédiatement
+        // Joue immédiatement si splash déjà fermé, sinon attend
         if (readyRef.current) playAudio();
       } catch { /* silencieux */ }
-    };
-
-    prepare();
+    })();
   }, [morningRecap, plan, user]);
 
-  // Étape 2 — dès que le splash est fermé, on joue (si l'audio est prêt)
+  // Joue dès que splash fermé, si audio prêt
   useEffect(() => {
-    if (!ready) return;
-    readyRef.current = true;
-    if (audioBlobUrl.current) playAudio();
+    if (ready && blobUrlRef.current) playAudio();
   }, [ready]);
 
   const playAudio = () => {
-    if (played.current || !audioBlobUrl.current) return;
-    played.current = true;
-    const audio = new Audio(audioBlobUrl.current);
-    audio.onended = () => {
-      URL.revokeObjectURL(audioBlobUrl.current!);
-      audioBlobUrl.current = null;
-    };
+    const url = blobUrlRef.current;
+    if (!url) return;
+    blobUrlRef.current = null; // évite double play
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
     audio.play().catch(() => {});
     localStorage.setItem(RECAP_KEY, new Date().toDateString());
   };
