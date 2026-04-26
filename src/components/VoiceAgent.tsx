@@ -117,6 +117,7 @@ export default function VoiceAgent() {
   };
 
   const startRecording = async () => {
+    setMicState('recording'); // feedback visuel immédiat
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
@@ -124,8 +125,8 @@ export default function VoiceAgent() {
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.start(1000);
       mediaRecorderRef.current = mr;
-      setMicState('recording');
     } catch {
+      setMicState('idle');
       setInputText('Accès au micro refusé.');
     }
   };
@@ -146,11 +147,10 @@ export default function VoiceAgent() {
         });
         if (!res.ok) throw new Error(await res.text());
         const { transcript } = await res.json();
-        setInputText(transcript);
-        inputRef.current?.focus();
+        setMicState('idle');
+        await sendToAgent(transcript); // envoi automatique
       } catch (err) {
         setInputText(err instanceof Error ? err.message : 'Erreur transcription');
-      } finally {
         setMicState('idle');
       }
     };
