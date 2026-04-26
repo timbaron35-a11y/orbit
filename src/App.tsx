@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -46,6 +46,7 @@ function ProtectedLayout() {
   const { loaded, isNewUser, locked } = useTheme();
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashShown'));
   const [splashDone, setSplashDone] = useState(() => !!sessionStorage.getItem('splashShown'));
+  const playRecapRef = useRef<(() => void) | null>(null);
 
   if (loading) {
     return (
@@ -70,13 +71,16 @@ function ProtectedLayout() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {showSplash && (
-        <SplashScreen onDone={() => {
-          sessionStorage.setItem('splashShown', '1');
-          setShowSplash(false);
-          setSplashDone(true);
-        }} />
+        <SplashScreen
+          onDone={() => {
+            sessionStorage.setItem('splashShown', '1');
+            setShowSplash(false);
+            setSplashDone(true);
+          }}
+          onPlayAudio={() => { playRecapRef.current?.(); }}
+        />
       )}
-      <MorningRecap ready={splashDone} />
+      <MorningRecap ready={splashDone} onPlayReady={(fn) => { playRecapRef.current = fn; }} />
       <LockedBanner />
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)', marginTop: locked ? 40 : 0 }}>

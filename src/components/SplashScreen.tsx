@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const DURATION = 9000;
 
-export default function SplashScreen({ onDone }: { onDone: () => void }) {
+export default function SplashScreen({ onDone, onPlayAudio }: { onDone: () => void; onPlayAudio?: () => void }) {
   const { settings } = useTheme();
   const { user } = useAuth();
   const firstName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
@@ -171,7 +171,7 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
         transition: 'opacity 0.6s ease',
       }}>
         <button
-          onClick={dismiss}
+          onClick={() => { onPlayAudio?.(); dismiss(); }}
           style={{
             padding: '11px 32px',
             borderRadius: 12,

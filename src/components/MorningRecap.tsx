@@ -15,7 +15,7 @@ function unlockAudio() {
   ctx.resume().then(() => ctx.close());
 }
 
-export default function MorningRecap({ ready }: { ready: boolean }) {
+export default function MorningRecap({ ready, onPlayReady }: { ready: boolean; onPlayReady?: (fn: () => void) => void }) {
   const { morningRecap, plan } = useTheme();
   const { user } = useAuth();
   const blobUrlRef = useRef<string | null>(null);
@@ -126,6 +126,7 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
 
         blobUrlRef.current = URL.createObjectURL(blob);
         LOG('audio ready, readyRef =', readyRef.current);
+        onPlayReady?.(playAudio); // expose fn so splash button can call directly
         if (readyRef.current) playAudio();
       } catch (e) {
         LOG('caught error:', e);
