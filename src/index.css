@@ -102,3 +102,19 @@ input, textarea { font-family: inherit; }
   from { transform: scaleY(0.4); }
   to   { transform: scaleY(1); }
 }
+@keyframes agentSlideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes agentRing {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes agentDot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+@keyframes agentGlow {
+  0%, 100% { box-shadow: 0 0 20px 2px rgba(124,92,252,0.35); }
+  50%      { box-shadow: 0 0 32px 8px rgba(124,92,252,0.6);  }
+}
