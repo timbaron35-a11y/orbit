@@ -170,17 +170,39 @@ export default function SplashScreen({ onDone }: { onDone: () => void }) {
         opacity: phase >= 3 ? 1 : 0,
         transition: 'opacity 0.6s ease',
       }}>
-        <div style={{ width: 120, height: 1, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', borderRadius: 1 }}>
+        <button
+          onClick={dismiss}
+          style={{
+            padding: '11px 32px',
+            borderRadius: 12,
+            border: '1px solid rgba(124,92,252,0.4)',
+            background: 'rgba(124,92,252,0.15)',
+            color: 'rgba(255,255,255,0.85)',
+            fontSize: 14, fontWeight: 600,
+            letterSpacing: '0.04em',
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 0 24px rgba(124,92,252,0.2)',
+            transition: 'background 0.2s, box-shadow 0.2s',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,92,252,0.28)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 36px rgba(124,92,252,0.4)';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,92,252,0.15)';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 24px rgba(124,92,252,0.2)';
+          }}
+        >
+          C'est parti →
+        </button>
+        <div style={{ width: 80, height: 1, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', borderRadius: 1, marginTop: 4 }}>
           <div style={{
             height: '100%',
             width: `${progress * 100}%`,
             background: 'linear-gradient(90deg, #7c5cfc, #c4b5fd)',
-            boxShadow: '0 0 8px rgba(124,92,252,0.8)',
             transition: 'width 0.05s linear',
           }} />
-        </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          Cliquer pour passer
         </div>
       </div>
     </div>
