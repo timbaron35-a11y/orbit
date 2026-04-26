@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
@@ -22,10 +22,14 @@ function DemoApp() {
   const [tourDone, setTourDone] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       signInAnonymously(auth).catch(console.error);
+    } else if (!user.isAnonymous) {
+      signOut(auth).then(() => signInAnonymously(auth)).catch(console.error);
+    } else {
+      setAuthed(true);
     }
-    if (!loading && user) setAuthed(true);
   }, [user, loading]);
 
   if (!authed) {
