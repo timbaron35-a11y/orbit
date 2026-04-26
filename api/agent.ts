@@ -98,14 +98,14 @@ Quand tu effectues une action, confirme-la brièvement. Si tu ne comprends pas, 
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: transcript },
       ],
       tools,
       tool_choice: 'auto',
-      max_tokens: 200,
+      max_tokens: 150,
       temperature: 0.2,
     });
 
@@ -115,21 +115,11 @@ Quand tu effectues une action, confirme-la brièvement. Si tu ne comprends pas, 
       const call = msg.tool_calls[0] as any;
       const args = JSON.parse(call.function.arguments);
 
-      // Get confirmation message
-      const confirmRes = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: transcript },
-          { role: 'assistant', content: null, tool_calls: msg.tool_calls },
-          { role: 'tool', tool_call_id: call.id, content: 'Action effectuée avec succès.' },
-        ],
-        max_tokens: 100,
-        temperature: 0.2,
-      });
+      // Confirmation générée localement — évite un 2ème appel GPT
+      const confirmation = buildConfirmation(call.function.name as string, args);
 
       return res.json({
-        message: confirmRes.choices[0].message.content,
+        message: confirmation,
         action: { type: call.function.name as string, args },
       });
     }
@@ -139,4 +129,27 @@ Quand tu effectues une action, confirme-la brièvement. Si tu ne comprends pas, 
     const message = err instanceof Error ? err.message : 'Erreur inconnue';
     return res.status(500).json({ error: message });
   }
+}
+
+function buildConfirmation(tool: string, args: Record<string, unknown>): string {
+  const STATUS_FR: Record<string, string> = {
+    nouveau: 'Nouveau', contacté: 'Contacté', devis: 'Devis', signé: 'Signé', perdu: 'Perdu',
+  };
+  if (tool === 'update_prospect_status') {
+    const status = STATUS_FR[args.status as string] ?? args.status;
+    return `C'est fait ! ${args.name} est maintenant en statut ${status}.`;
+  }
+  if (tool === 'update_prospect_amount') {
+    return `Montant de ${args.name} mis à jour : ${(args.amount as number).toLocaleString('fr-FR')} €.`;
+  }
+  if (tool === 'add_note') {
+    return `Note ajoutée pour ${args.name}.`;
+  }
+  if (tool === 'create_prospect') {
+    return `Prospect ${args.name} créé avec succès.`;
+  }
+  if (tool === 'delete_prospect') {
+    return `Le prospect a été supprimé.`;
+  }
+  return 'Action effectuée.';
 }
