@@ -13,6 +13,7 @@ import Clients from './Clients';
 import ProspectDetail from './ProspectDetail';
 import Agenda from './Agenda';
 import Settings from './Settings';
+import Team from './Team';
 import DemoTour from '../components/DemoTour';
 
 function DemoApp() {
@@ -62,6 +63,7 @@ function DemoApp() {
                 <Route path="/clients/:id" element={<ProspectDetail />} />
                 <Route path="/agenda" element={<Agenda />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/team" element={<Team />} />
               </Routes>
             </main>
           </div>
