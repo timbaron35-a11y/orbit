@@ -1,5 +1,14 @@
 import { Timestamp } from 'firebase/firestore';
 
+// Convertit un Timestamp Firestore OU une string ISO en Date
+export function tsToDate(ts: unknown): Date {
+  if (!ts) return new Date();
+  if (ts instanceof Timestamp) return ts.toDate();
+  if (typeof ts === 'string') return new Date(ts);
+  if (typeof ts === 'object' && 'toDate' in (ts as object)) return (ts as Timestamp).toDate();
+  return new Date();
+}
+
 export type ProspectStatus = 'nouveau' | 'contacté' | 'devis' | 'signé' | 'perdu';
 
 export interface Prospect {

@@ -10,6 +10,7 @@ import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useToast } from '../contexts/ToastContext';
 import type { Prospect } from '../types';
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency, formatDate } from '../types';
+import { tsToDate } from '../types';
 import ProspectModal from '../components/ProspectModal';
 import CallRecorder from '../components/CallRecorder';
 
@@ -34,12 +35,12 @@ const ACTIVITY_CONFIG: Record<ActivityType, { label: string; icon: string; color
 const TYPES: ActivityType[] = ['note', 'appel', 'email', 'relance'];
 
 function timeAgo(ts: Timestamp): string {
-  const diff = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
+  const diff = Math.floor((Date.now() - tsToDate(ts).getTime()) / 1000);
   if (diff < 60) return "À l'instant";
   if (diff < 3600) return `il y a ${Math.floor(diff / 60)}min`;
   if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
   if (diff < 86400 * 2) return 'Hier';
-  return formatDate(ts.toDate());
+  return formatDate(tsToDate(ts));
 }
 
 export default function ProspectDetail() {
@@ -161,7 +162,7 @@ export default function ProspectDetail() {
                 </span>
               )}
               <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-                Dernier contact : {formatDate(prospect.lastContact.toDate())}
+                Dernier contact : {formatDate(tsToDate(prospect.lastContact))}
               </span>
             </div>
           </div>
@@ -258,11 +259,11 @@ function InfoCard({ prospect, activityCount }: { prospect: Prospect; activityCou
           </span>
         } />
         <InfoRow label="Montant" value={prospect.amount > 0 ? formatCurrency(prospect.amount) : '—'} />
-        <InfoRow label="Dernier contact" value={formatDate(prospect.lastContact.toDate())} />
+        <InfoRow label="Dernier contact" value={formatDate(tsToDate(prospect.lastContact))} />
         {prospect.reminderDate && (
           <InfoRow label="Rappel" value={
             <span style={{ color: '#f59e0b' }}>
-              🔔 {formatDate(prospect.reminderDate.toDate())}
+              🔔 {formatDate(tsToDate(prospect.reminderDate))}
             </span>
           } />
         )}

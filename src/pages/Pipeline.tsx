@@ -3,6 +3,7 @@ import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Prospect, ProspectStatus } from '../types';
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency, daysSince } from '../types';
+import { tsToDate } from '../types';
 import ProspectModal from '../components/ProspectModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
@@ -17,7 +18,7 @@ function ProspectCard({
   onEdit: (p: Prospect) => void;
   isDragging: boolean;
 }) {
-  const since = daysSince(prospect.lastContact.toDate());
+  const since = daysSince(tsToDate(prospect.lastContact));
   const needsFollowUp = since > 5 && prospect.status !== 'signé' && prospect.status !== 'perdu';
 
   return (

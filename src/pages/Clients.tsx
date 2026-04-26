@@ -4,6 +4,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Prospect, ProspectStatus } from '../types';
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency, formatDate, daysSince } from '../types';
+import { tsToDate } from '../types';
 
 function exportCSV(prospects: Prospect[]) {
   const headers = ['Nom', 'Statut', 'Montant (€)', 'Dernier contact', 'Notes'];
@@ -11,7 +12,7 @@ function exportCSV(prospects: Prospect[]) {
     `"${p.name.replace(/"/g, '""')}"`,
     STATUS_LABEL[p.status],
     p.amount.toString(),
-    formatDate(p.lastContact.toDate()),
+    formatDate(tsToDate(p.lastContact)),
     `"${(p.notes ?? '').replace(/"/g, '""')}"`,
   ]);
   const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
@@ -229,7 +230,7 @@ export default function Clients() {
               </tr>
             ) : (
               filtered.map((p) => {
-                const since = daysSince(p.lastContact.toDate());
+                const since = daysSince(tsToDate(p.lastContact));
                 return (
                   <tr
                     key={p.id}
@@ -273,7 +274,7 @@ export default function Clients() {
                       {p.amount > 0 ? formatCurrency(p.amount) : '—'}
                     </td>
                     <td style={{ padding: '13px 16px', color: since > 5 && p.status !== 'signé' && p.status !== 'perdu' ? '#f59e0b' : 'var(--text-dim)', fontSize: 13 }}>
-                      {formatDate(p.lastContact.toDate())}
+                      {formatDate(tsToDate(p.lastContact))}
                       {since > 5 && p.status !== 'signé' && p.status !== 'perdu' && (
                         <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>⚠ {since}j</span>
                       )}

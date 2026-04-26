@@ -4,6 +4,7 @@ import { collection, onSnapshot, updateDoc, doc, deleteField } from 'firebase/fi
 import { db } from '../firebase';
 import type { Prospect, ProspectStatus } from '../types';
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency, formatDate, daysSince } from '../types';
+import { tsToDate } from '../types';
 import ProspectModal from '../components/ProspectModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace, type Invitation } from '../contexts/WorkspaceContext';
@@ -143,7 +144,7 @@ function MonthlyChart({ prospects }: { prospects: Prospect[] }) {
     const ca = prospects
       .filter(p => {
         if (p.status !== 'signé') return false;
-        const d = p.lastContact.toDate();
+        const d = tsToDate(p.lastContact);
         return d.getMonth() === month && d.getFullYear() === year;
       })
       .reduce((sum, p) => sum + p.amount, 0);
@@ -221,17 +222,17 @@ export default function Dashboard() {
 
   const remindersToday = prospects.filter(p => {
     if (!p.reminderDate) return false;
-    const d = p.reminderDate.toDate();
+    const d = tsToDate(p.reminderDate);
     return d <= today;
   }).sort((a, b) => a.reminderDate!.toDate().getTime() - b.reminderDate!.toDate().getTime());
 
   const pendingFollowUp = prospects.filter(p => {
     if (p.status === 'signé' || p.status === 'perdu') return false;
-    return daysSince(p.lastContact.toDate()) > 5;
+    return daysSince(tsToDate(p.lastContact)) > 5;
   });
 
   const signedThisMonth = signed.filter(p => {
-    const d = p.lastContact.toDate();
+    const d = tsToDate(p.lastContact);
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
   const caThisMonth = signedThisMonth.reduce((sum, p) => sum + p.amount, 0);
@@ -286,9 +287,9 @@ export default function Dashboard() {
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {remindersToday.map(p => {
-              const isOverdue = p.reminderDate!.toDate() < todayStart;
+              const isOverdue = tsToDate(p.reminderDate) < todayStart;
               const reminderLabel = isOverdue
-                ? `En retard · ${formatDate(p.reminderDate!.toDate())}`
+                ? `En retard · ${formatDate(tsToDate(p.reminderDate))}`
                 : "Aujourd'hui";
               return (
                 <div
@@ -441,7 +442,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {hotProspects.map((p, i) => {
-                  const since = daysSince(p.lastContact.toDate());
+                  const since = daysSince(tsToDate(p.lastContact));
                   return (
                     <tr
                       key={p.id}

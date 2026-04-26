@@ -3,6 +3,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, Timestamp, deleteField }
 import { db } from '../firebase';
 import type { Prospect, ProspectStatus } from '../types';
 import { STATUS_LABEL, STATUS_COLOR } from '../types';
+import { tsToDate } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useToast } from '../contexts/ToastContext';
@@ -16,7 +17,7 @@ interface Props {
 const STATUSES: ProspectStatus[] = ['nouveau', 'contacté', 'devis', 'signé', 'perdu'];
 
 const toDateInput = (ts: { toDate: () => Date }) =>
-  ts.toDate().toISOString().split('T')[0];
+  tsToDate(ts).toISOString().split('T')[0];
 
 const todayInput = () => new Date().toISOString().split('T')[0];
 

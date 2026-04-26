@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import type { Prospect, ProspectStatus } from '../types';
 import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency } from '../types';
+import { tsToDate } from '../types';
 
 interface ReminderGroup {
   label: string;
@@ -30,7 +31,7 @@ function groupByDate(prospects: Prospect[]): ReminderGroup[] {
 
   for (const p of prospects) {
     if (!p.reminderDate) continue;
-    const d = startOfDay(p.reminderDate.toDate());
+    const d = startOfDay(tsToDate(p.reminderDate));
     if (d < today) overdue.push(p);
     else if (d.getTime() === today.getTime()) todayItems.push(p);
     else if (d.getTime() === tomorrow.getTime()) tomorrowItems.push(p);
@@ -90,8 +91,8 @@ export default function Agenda() {
   };
 
   const today = startOfDay(new Date());
-  const overdueCount = prospects.filter(p => p.reminderDate && startOfDay(p.reminderDate.toDate()) < today).length;
-  const todayCount = prospects.filter(p => p.reminderDate && startOfDay(p.reminderDate.toDate()).getTime() === today.getTime()).length;
+  const overdueCount = prospects.filter(p => p.reminderDate && startOfDay(tsToDate(p.reminderDate)) < today).length;
+  const todayCount = prospects.filter(p => p.reminderDate && startOfDay(tsToDate(p.reminderDate)).getTime() === today.getTime()).length;
 
   const groups = groupByDate(prospects);
 
@@ -247,7 +248,7 @@ function ReminderCard({ prospect: p, groupColor, isDismissing, onDone, onSnooze,
           )}
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3 }}>
-          🔔 {p.reminderDate ? formatReminderDate(p.reminderDate.toDate()) : ''}
+          🔔 {p.reminderDate ? formatReminderDate(tsToDate(p.reminderDate)) : ''}
           {p.notes && (
             <span style={{ marginLeft: 10, color: 'var(--text-muted)', opacity: 0.7 }}>
               · {p.notes.slice(0, 60)}{p.notes.length > 60 ? '…' : ''}

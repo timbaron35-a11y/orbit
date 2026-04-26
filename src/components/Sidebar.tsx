@@ -9,6 +9,7 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { useNotifications } from '../hooks/useNotifications';
 import { useToast } from '../contexts/ToastContext';
 import type { Prospect } from '../types';
+import { tsToDate } from '../types';
 
 const GridIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -105,7 +106,7 @@ export default function Sidebar() {
       const overdue = snap.docs
         .filter(d => {
           const data = d.data() as Prospect;
-          return data.reminderDate && data.reminderDate.toDate() <= now;
+          return data.reminderDate && tsToDate(data.reminderDate) <= now;
         })
         .map(d => ({ id: d.id, ...d.data() } as Prospect));
       setOverdueProspects(overdue);
