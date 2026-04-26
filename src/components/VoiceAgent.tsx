@@ -6,11 +6,12 @@ import { tsToDate, daysSince } from '../types';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { useTheme } from '../contexts/ThemeContext';
 
-type AgentState = 'idle' | 'recording' | 'thinking' | 'error';
+type MicState = 'idle' | 'recording' | 'transcribing';
 
 interface AgentMessage {
   role: 'user' | 'agent';
   text: string;
+  loading?: boolean;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -28,17 +29,18 @@ function getSupportedMimeType(): string {
 }
 
 export default function VoiceAgent() {
-  const [state, setState] = useState<AgentState>('idle');
   const [open, setOpen] = useState(false);
+  const [micState, setMicState] = useState<MicState>('idle');
+  const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [prospects, setProspects] = useState<Prospect[]>([]);
-  const [error, setError] = useState('');
 
   const { workspaceUid } = useWorkspace();
   const { plan } = useTheme();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!workspaceUid) return;
@@ -53,85 +55,16 @@ export default function VoiceAgent() {
   }, [messages]);
 
   useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [open]);
+
+  useEffect(() => {
     return () => { mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop()); };
   }, []);
-
-  const startRecording = async () => {
-    setError('');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
-      chunksRef.current = [];
-      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.start(1000);
-      mediaRecorderRef.current = mr;
-      setState('recording');
-    } catch {
-      setError('Accès au micro refusé.');
-      setState('error');
-    }
-  };
-
-  const stopRecording = () => {
-    if (!mediaRecorderRef.current) return;
-    mediaRecorderRef.current.onstop = async () => {
-      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
-      const mimeType = mediaRecorderRef.current?.mimeType ?? 'audio/webm';
-      const blob = new Blob(chunksRef.current, { type: mimeType });
-      await processVoice(blob, mimeType);
-    };
-    mediaRecorderRef.current.stop();
-    setState('thinking');
-  };
-
-  const processVoice = async (blob: Blob, mimeType: string) => {
-    try {
-      const base64 = await blobToBase64(blob);
-      const tRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64, mimeType }),
-      });
-      if (!tRes.ok) throw new Error(await tRes.text());
-      const { transcript } = await tRes.json();
-
-      setMessages(prev => [...prev, { role: 'user', text: transcript }]);
-
-      const signed = prospects.filter(p => p.status === 'signé');
-      const totalCA = signed.reduce((s, p) => s + (p.amount || 0), 0);
-      const stats = { totalCA, signedCount: signed.length, prospectCount: prospects.length };
-
-      const agentProspects = prospects.map(p => ({
-        id: p.id,
-        name: p.name,
-        status: p.status,
-        amount: p.amount || 0,
-        email: p.email,
-        company: p.company,
-        daysSinceContact: daysSince(tsToDate(p.lastContact)),
-      }));
-
-      const aRes = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, prospects: agentProspects, stats }),
-      });
-      if (!aRes.ok) throw new Error(await aRes.text());
-      const { message, action } = await aRes.json();
-
-      if (action) await executeAction(action);
-      setMessages(prev => [...prev, { role: 'agent', text: message ?? '' }]);
-      setState('idle');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur');
-      setState('error');
-    }
-  };
 
   const executeAction = useCallback(async (action: { type: string; args: Record<string, unknown> }) => {
     if (!workspaceUid) return;
     const col = collection(db, 'users', workspaceUid, 'prospects');
-
     if (action.type === 'update_prospect_status') {
       const { id, status } = action.args as { id: string; status: ProspectStatus };
       await updateDoc(doc(col, id), { status, lastContact: Timestamp.now() });
@@ -140,144 +73,265 @@ export default function VoiceAgent() {
         name: string; email?: string; company?: string; amount?: number; status?: ProspectStatus;
       };
       await addDoc(col, {
-        name,
-        email: email ?? '',
-        company: company ?? '',
-        amount: amount ?? 0,
-        status: status ?? 'nouveau',
-        notes: '',
-        lastContact: Timestamp.now(),
-        createdAt: Timestamp.now(),
+        name, email: email ?? '', company: company ?? '',
+        amount: amount ?? 0, status: status ?? 'nouveau',
+        notes: '', lastContact: Timestamp.now(), createdAt: Timestamp.now(),
       });
     }
   }, [workspaceUid]);
 
-  const handleMicClick = () => {
-    if (state === 'idle') startRecording();
-    else if (state === 'recording') stopRecording();
-    else if (state === 'error') { setState('idle'); setError(''); }
+  const sendToAgent = async (text: string) => {
+    if (!text.trim()) return;
+    setInputText('');
+    setMessages(prev => [...prev, { role: 'user', text }, { role: 'agent', text: '', loading: true }]);
+
+    try {
+      const signed = prospects.filter(p => p.status === 'signé');
+      const stats = {
+        totalCA: signed.reduce((s, p) => s + (p.amount || 0), 0),
+        signedCount: signed.length,
+        prospectCount: prospects.length,
+      };
+      const agentProspects = prospects.map(p => ({
+        id: p.id, name: p.name, status: p.status, amount: p.amount || 0,
+        email: p.email, company: p.company,
+        daysSinceContact: daysSince(tsToDate(p.lastContact)),
+      }));
+
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: text, prospects: agentProspects, stats }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { message, action } = await res.json();
+
+      if (action) await executeAction(action);
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { role: 'agent', text: message ?? '' } : m
+      ));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur';
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { role: 'agent', text: `⚠️ ${msg}` } : m
+      ));
+    }
   };
 
-  const isPremium = plan === 'setup';
-  const micColor = state === 'recording' ? '#ef4444' : 'var(--accent)';
-  const micLabel = state === 'recording' ? '⏹' : state === 'thinking' ? '…' : '🎙';
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+      chunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.start(1000);
+      mediaRecorderRef.current = mr;
+      setMicState('recording');
+    } catch {
+      setInputText('Accès au micro refusé.');
+    }
+  };
 
-  if (!isPremium) return null;
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current) return;
+    setMicState('transcribing');
+    mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+      const mimeType = mediaRecorderRef.current?.mimeType ?? 'audio/webm';
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      try {
+        const base64 = await blobToBase64(blob);
+        const res = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: base64, mimeType }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const { transcript } = await res.json();
+        setInputText(transcript);
+        inputRef.current?.focus();
+      } catch (err) {
+        setInputText(err instanceof Error ? err.message : 'Erreur transcription');
+      } finally {
+        setMicState('idle');
+      }
+    };
+    mediaRecorderRef.current.stop();
+  };
+
+  const handleMicClick = () => {
+    if (micState === 'idle') startRecording();
+    else if (micState === 'recording') stopRecording();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendToAgent(inputText);
+    }
+  };
+
+  if (plan !== 'setup') return null;
 
   return (
     <>
       {/* Floating button */}
       <button
-        onClick={() => { setOpen(o => !o); }}
+        onClick={() => setOpen(o => !o)}
+        title="Assistant IA"
         style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 900,
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'var(--accent)', border: 'none',
-          color: 'white', fontSize: 22, cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(124,92,252,0.4)',
+          width: 50, height: 50, borderRadius: '50%',
+          background: open ? 'var(--surface)' : 'var(--accent)',
+          border: open ? '1px solid var(--border)' : 'none',
+          color: open ? 'var(--text-muted)' : 'white',
+          fontSize: open ? 18 : 22, cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(124,92,252,0.35)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'transform 0.15s',
+          transition: 'all 0.2s',
         }}
-        title="Assistant IA"
       >
-        🤖
+        {open ? '×' : '🤖'}
       </button>
 
       {/* Panel */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: 88, right: 24, zIndex: 900,
-          width: 320, background: 'var(--surface)',
+          position: 'fixed', bottom: 84, right: 24, zIndex: 900,
+          width: 340, background: 'var(--surface)',
           border: '1px solid var(--border)', borderRadius: 14,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
           {/* Header */}
           <div style={{
-            padding: '12px 16px', borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '11px 16px', borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>🤖</span>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Assistant CRM</span>
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, padding: '0 2px' }}
-            >
-              ×
-            </button>
+            <span style={{ fontSize: 14 }}>🤖</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', flex: 1 }}>Assistant CRM</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
+              Setup
+            </span>
           </div>
 
           {/* Messages */}
           <div style={{
-            flex: 1, overflowY: 'auto', padding: '12px 14px',
+            overflowY: 'auto', padding: '14px',
             display: 'flex', flexDirection: 'column', gap: 10,
-            minHeight: 160, maxHeight: 260,
+            minHeight: 180, maxHeight: 300,
           }}>
             {messages.length === 0 && (
-              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', margin: 'auto' }}>
-                Appuie sur le micro et parle à ton CRM.<br />
-                <span style={{ fontSize: 11.5 }}>Ex : "Mets Dupont en devis" ou "Crée un prospect Martin"</span>
-              </p>
+              <div style={{ margin: 'auto', textAlign: 'center', padding: '8px 0' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🎙️</div>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+                  Parle ou écris une commande.<br />
+                  <span style={{ fontSize: 11.5, opacity: 0.75 }}>
+                    "Mets Dupont en signé" · "Crée un prospect"<br />"Qui n'a pas été contacté ?"
+                  </span>
+                </p>
+              </div>
             )}
             {messages.map((m, i) => (
               <div key={i} style={{
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
+                maxWidth: '88%',
                 background: m.role === 'user' ? 'var(--accent)' : 'var(--surface-2)',
                 color: m.role === 'user' ? 'white' : 'var(--text)',
-                padding: '8px 12px', borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                padding: '8px 12px',
+                borderRadius: m.role === 'user' ? '12px 12px 3px 12px' : '12px 12px 12px 3px',
                 fontSize: 13, lineHeight: 1.5,
               }}>
-                {m.text}
+                {m.loading ? <LoadingDots /> : m.text}
               </div>
             ))}
-            {state === 'thinking' && (
-              <div style={{
-                alignSelf: 'flex-start',
-                background: 'var(--surface-2)', padding: '8px 14px',
-                borderRadius: '12px 12px 12px 2px', fontSize: 18,
-                animation: 'pulse 1s ease-in-out infinite',
-              }}>
-                ···
-              </div>
-            )}
-            {error && (
-              <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{error}</p>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Mic */}
+          {/* Input bar */}
           <div style={{
-            padding: '12px 16px', borderTop: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            padding: '10px 12px', borderTop: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            {state === 'recording' && (
-              <span style={{ fontSize: 11.5, color: '#ef4444', animation: 'pulse 1s ease-in-out infinite' }}>
-                ● Écoute en cours…
-              </span>
-            )}
+            {/* Mic button */}
             <button
               onClick={handleMicClick}
-              disabled={state === 'thinking'}
+              disabled={micState === 'transcribing'}
+              title={micState === 'recording' ? 'Arrêter' : 'Parler'}
               style={{
-                width: 46, height: 46, borderRadius: '50%',
-                background: state === 'recording' ? 'rgba(239,68,68,0.1)' : 'var(--accent-dim)',
-                border: `2px solid ${micColor}`,
-                color: micColor, fontSize: state === 'thinking' ? 16 : 20,
-                cursor: state === 'thinking' ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+                width: 34, height: 34, borderRadius: '50%',
+                background: micState === 'recording' ? 'rgba(239,68,68,0.12)' : 'var(--surface-2)',
+                border: `1.5px solid ${micState === 'recording' ? '#ef4444' : 'var(--border)'}`,
+                color: micState === 'recording' ? '#ef4444' : micState === 'transcribing' ? 'var(--text-muted)' : 'var(--text-muted)',
+                fontSize: micState === 'transcribing' ? 10 : 15,
+                cursor: micState === 'transcribing' ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+                animation: micState === 'recording' ? 'pulse 1s ease-in-out infinite' : 'none',
+              }}
+            >
+              {micState === 'transcribing' ? '···' : micState === 'recording' ? '⏹' : '🎙'}
+            </button>
+
+            {/* Text input */}
+            <input
+              ref={inputRef}
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                micState === 'recording' ? 'Écoute en cours…' :
+                micState === 'transcribing' ? 'Transcription…' :
+                'Écris ou parle…'
+              }
+              disabled={micState !== 'idle'}
+              style={{
+                flex: 1, background: 'var(--surface-2)',
+                border: '1px solid var(--border)', borderRadius: 20,
+                padding: '7px 14px', fontSize: 13,
+                color: 'var(--text)', outline: 'none',
+                opacity: micState !== 'idle' ? 0.6 : 1,
+              }}
+            />
+
+            {/* Send button */}
+            <button
+              onClick={() => sendToAgent(inputText)}
+              disabled={!inputText.trim() || micState !== 'idle'}
+              title="Envoyer"
+              style={{
+                flexShrink: 0,
+                width: 34, height: 34, borderRadius: '50%',
+                background: inputText.trim() && micState === 'idle' ? 'var(--accent)' : 'var(--surface-2)',
+                border: '1.5px solid var(--border)',
+                color: inputText.trim() && micState === 'idle' ? 'white' : 'var(--text-muted)',
+                fontSize: 14, cursor: inputText.trim() && micState === 'idle' ? 'pointer' : 'not-allowed',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.15s',
               }}
             >
-              {micLabel}
+              ↑
             </button>
           </div>
         </div>
       )}
     </>
+  );
+}
+
+function LoadingDots() {
+  return (
+    <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+      {[0, 1, 2].map(i => (
+        <span key={i} style={{
+          width: 5, height: 5, borderRadius: '50%',
+          background: 'var(--text-muted)',
+          animation: `pulse 1s ease-in-out ${i * 0.2}s infinite`,
+          display: 'inline-block',
+        }} />
+      ))}
+    </span>
   );
 }
