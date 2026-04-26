@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import Agenda from './pages/Agenda';
 import ProspectDetail from './pages/ProspectDetail';
+import Team from './pages/Team';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Demo from './pages/Demo';
@@ -92,6 +93,7 @@ function ProtectedLayout() {
           <Route path="/automations" element={<Automations />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/team" element={<Team />} />
         </Routes>
       </main>
       <GlobalSearch />
