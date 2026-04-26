@@ -20,6 +20,9 @@ export interface Prospect {
   notes: string;
   reminderDate?: Timestamp;
   tags?: string[];
+  email?: string;
+  phone?: string;
+  company?: string;
   createdByEmail?: string;
   assignedTo?: string;
 }

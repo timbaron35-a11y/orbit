@@ -29,6 +29,9 @@ export default function ProspectModal({ prospect, onClose }: Props) {
   const isEdit = !!prospect;
 
   const [name, setName] = useState(prospect?.name ?? '');
+  const [email, setEmail] = useState(prospect?.email ?? '');
+  const [phone, setPhone] = useState(prospect?.phone ?? '');
+  const [company, setCompany] = useState(prospect?.company ?? '');
   const [status, setStatus] = useState<ProspectStatus>(prospect?.status ?? 'nouveau');
   const [amount, setAmount] = useState(prospect?.amount?.toString() ?? '');
   const [lastContact, setLastContact] = useState(prospect ? toDateInput(prospect.lastContact) : todayInput());
@@ -57,6 +60,9 @@ export default function ProspectModal({ prospect, onClose }: Props) {
       if (isEdit) {
         const data: Record<string, unknown> = {
           name: name.trim(), status,
+          email: email.trim() || deleteField(),
+          phone: phone.trim() || deleteField(),
+          company: company.trim() || deleteField(),
           amount: parseFloat(amount) || 0,
           lastContact: Timestamp.fromDate(new Date(lastContact + 'T12:00:00')),
           notes: notes.trim(), tags,
@@ -70,6 +76,9 @@ export default function ProspectModal({ prospect, onClose }: Props) {
       } else {
         const data: Record<string, unknown> = {
           name: name.trim(), status,
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          company: company.trim() || null,
           amount: parseFloat(amount) || 0,
           lastContact: Timestamp.fromDate(new Date(lastContact + 'T12:00:00')),
           notes: notes.trim(), tags,
@@ -162,6 +171,35 @@ export default function ProspectModal({ prospect, onClose }: Props) {
               placeholder="Ex : Agence Lumière"
               autoFocus
               onKeyDown={e => e.key === 'Enter' && handleSave()}
+            />
+          </Field>
+
+          <Field label="Email">
+            <input
+              className="orbit-input"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="contact@exemple.com"
+            />
+          </Field>
+
+          <Field label="Téléphone">
+            <input
+              className="orbit-input"
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+33 6 12 34 56 78"
+            />
+          </Field>
+
+          <Field label="Entreprise">
+            <input
+              className="orbit-input"
+              value={company}
+              onChange={e => setCompany(e.target.value)}
+              placeholder="Nom de l'entreprise"
             />
           </Field>
 
