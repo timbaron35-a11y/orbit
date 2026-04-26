@@ -43,6 +43,10 @@ export default function VoiceAgent() {
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!workspaceUid) return;
@@ -73,8 +77,47 @@ export default function VoiceAgent() {
     return () => {
       mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
       streamRef.current?.getTracks().forEach(t => t.stop());
+      stopVAD();
     };
   }, []);
+
+  const stopVAD = () => {
+    if (vadFrameRef.current) cancelAnimationFrame(vadFrameRef.current);
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+  };
+
+  const startVAD = (stream: MediaStream, onSilence: () => void) => {
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.4;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    audioCtxRef.current = ctx;
+    analyserRef.current = analyser;
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let speechDetected = false;
+
+    const tick = () => {
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+      if (avg > 8) {
+        // parole détectée
+        speechDetected = true;
+        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+      } else if (speechDetected && !silenceTimerRef.current) {
+        // silence après parole → timer 1.2s
+        silenceTimerRef.current = setTimeout(() => { onSilence(); }, 1200);
+      }
+
+      vadFrameRef.current = requestAnimationFrame(tick);
+    };
+    vadFrameRef.current = requestAnimationFrame(tick);
+  };
 
   const executeAction = useCallback(async (action: { type: string; args: Record<string, unknown> }) => {
     if (!workspaceUid) return;
@@ -132,14 +175,14 @@ export default function VoiceAgent() {
   const startRecording = async () => {
     setMicState('recording');
     try {
-      // Utilise le stream pré-acquis si disponible, sinon en demande un nouveau
       const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const mr = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
       chunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.start(100); // timeslice court pour capturer dès le début
+      mr.start(100);
       mediaRecorderRef.current = mr;
+      startVAD(stream, stopRecording); // détection silence automatique
     } catch {
       setMicState('idle');
       setInputText('Accès au micro refusé.');
@@ -147,10 +190,10 @@ export default function VoiceAgent() {
   };
 
   const stopRecording = () => {
-    if (!mediaRecorderRef.current) return;
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+    stopVAD();
     setMicState('transcribing');
     mediaRecorderRef.current.onstop = async () => {
-      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
       const mimeType = mediaRecorderRef.current?.mimeType ?? 'audio/webm';
       const blob = new Blob(chunksRef.current, { type: mimeType });
       try {
@@ -163,7 +206,7 @@ export default function VoiceAgent() {
         if (!res.ok) throw new Error(await res.text());
         const { transcript } = await res.json();
         setMicState('idle');
-        await sendToAgent(transcript); // envoi automatique
+        await sendToAgent(transcript);
       } catch (err) {
         setInputText(err instanceof Error ? err.message : 'Erreur transcription');
         setMicState('idle');
@@ -172,14 +215,9 @@ export default function VoiceAgent() {
     mediaRecorderRef.current.stop();
   };
 
-  const handleMicDown = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
+  const handleMicClick = () => {
     if (micState === 'idle') startRecording();
-  };
-
-  const handleMicUp = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    if (micState === 'recording') stopRecording();
+    else if (micState === 'recording') stopRecording();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -307,7 +345,7 @@ export default function VoiceAgent() {
             background: 'rgba(0,0,0,0.2)',
           }}>
             {/* Mic */}
-            <MicButton micState={micState} onDown={handleMicDown} onUp={handleMicUp} />
+            <MicButton micState={micState} onClick={handleMicClick} />
 
             {/* Input */}
             <input
@@ -315,7 +353,7 @@ export default function VoiceAgent() {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isRecording ? 'Écoute…' : isTranscribing ? 'Transcription…' : 'Écris ou maintiens 🎙 pour parler…'}
+              placeholder={isRecording ? 'Parle, envoi auto à la fin…' : isTranscribing ? 'Transcription…' : 'Écris ou clique 🎙 pour parler…'}
               disabled={micState !== 'idle'}
               style={{
                 flex: 1,
@@ -404,25 +442,18 @@ export default function VoiceAgent() {
   );
 }
 
-function MicButton({ micState, onDown, onUp }: {
-  micState: MicState;
-  onDown: (e: React.MouseEvent | React.TouchEvent) => void;
-  onUp: (e: React.MouseEvent | React.TouchEvent) => void;
-}) {
+function MicButton({ micState, onClick }: { micState: MicState; onClick: () => void }) {
   const [hover, setHover] = useState(false);
   const isRecording = micState === 'recording';
   const isTranscribing = micState === 'transcribing';
 
   return (
     <button
-      onMouseDown={onDown}
-      onMouseUp={onUp}
-      onMouseLeave={e => { setHover(false); if (isRecording) onUp(e); }}
-      onTouchStart={onDown}
-      onTouchEnd={onUp}
+      onClick={onClick}
       disabled={isTranscribing}
       onMouseEnter={() => setHover(true)}
-      title="Maintenir pour parler"
+      onMouseLeave={() => setHover(false)}
+      title={isRecording ? 'Arrêter' : 'Parler'}
       style={{
         flexShrink: 0,
         width: 36, height: 36, borderRadius: 10,
@@ -436,7 +467,6 @@ function MicButton({ micState, onDown, onUp }: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 0.15s',
         transform: isRecording ? 'scale(0.95)' : hover && !isTranscribing ? 'scale(1.05)' : 'scale(1)',
-        userSelect: 'none',
       }}
     >
       {isTranscribing ? <ThinkingDots /> : '🎙'}
