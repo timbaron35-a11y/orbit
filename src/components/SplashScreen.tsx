@@ -14,7 +14,7 @@ const ORBITS = [
   { radius: 210, size: 2,   duration: 16,  color: '#c4b5fd', opacity: 0.25, delay: 8 },
 ];
 
-const STARS = Array.from({ length: 80 }, (_, i) => ({
+const STARS = Array.from({ length: 80 }, () => ({
   x: Math.random() * 100,
   y: Math.random() * 100,
   size: 0.5 + Math.random() * 1.5,
