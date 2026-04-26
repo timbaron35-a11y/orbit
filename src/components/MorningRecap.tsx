@@ -7,6 +7,7 @@ import type { Prospect } from '../types';
 import { tsToDate, daysSince } from '../types';
 
 const RECAP_KEY = 'morningRecapDate';
+const LOG = (...args: unknown[]) => console.log('[MorningRecap]', ...args);
 
 export default function MorningRecap({ ready }: { ready: boolean }) {
   const { morningRecap, plan } = useTheme();
@@ -14,19 +15,31 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
   const blobUrlRef = useRef<string | null>(null);
   const readyRef = useRef(ready);
 
+  LOG('render', { morningRecap, plan, user: user?.uid, ready });
+
   useEffect(() => { readyRef.current = ready; }, [ready]);
 
   useEffect(() => {
-    if (!morningRecap || plan !== 'setup' || !user) return;
-    if (localStorage.getItem(RECAP_KEY) === new Date().toDateString()) return;
+    LOG('effect fired', { morningRecap, plan, user: user?.uid });
 
+    if (!morningRecap) { LOG('skip: morningRecap off'); return; }
+    if (plan !== 'setup') { LOG('skip: plan =', plan); return; }
+    if (!user) { LOG('skip: no user'); return; }
+
+    const stored = localStorage.getItem(RECAP_KEY);
+    const today = new Date().toDateString();
+    if (stored === today) { LOG('skip: already played today', stored); return; }
+
+    LOG('starting fetch…');
     let active = true;
 
     (async () => {
       try {
         const firstName = user.displayName?.split(' ')[0] || user.email?.split('@')[0] || '';
         const snap = await getDocs(collection(db, 'users', user.uid, 'prospects'));
-        if (!active) return;
+        if (!active) { LOG('cancelled after Firestore'); return; }
+
+        LOG('got', snap.docs.length, 'prospects');
 
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Prospect));
         const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
@@ -73,36 +86,54 @@ export default function MorningRecap({ ready }: { ready: boolean }) {
 
         parts.push('Bonne journée, tu vas cartonner !');
 
+        const text = parts.join(' ');
+        LOG('calling /api/tts, text length =', text.length);
+
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: parts.join(' ') }),
+          body: JSON.stringify({ text }),
         });
-        if (!active || !res.ok) return;
+
+        LOG('/api/tts response:', res.status, res.ok);
+        if (!active) { LOG('cancelled after TTS fetch'); return; }
+        if (!res.ok) {
+          const errText = await res.text();
+          LOG('TTS error body:', errText);
+          return;
+        }
 
         const blob = await res.blob();
+        LOG('blob size:', blob.size, 'type:', blob.type);
         if (!active) return;
 
         blobUrlRef.current = URL.createObjectURL(blob);
+        LOG('audio ready, readyRef =', readyRef.current);
         if (readyRef.current) playAudio();
-      } catch { /* silencieux */ }
+      } catch (e) {
+        LOG('caught error:', e);
+      }
     })();
 
-    return () => { active = false; };
+    return () => { LOG('cleanup — cancelling'); active = false; };
   }, [morningRecap, plan, user]);
 
   useEffect(() => {
+    LOG('ready effect', { ready, hasBlobUrl: !!blobUrlRef.current });
     if (ready && blobUrlRef.current) playAudio();
   }, [ready]);
 
   const playAudio = () => {
     const url = blobUrlRef.current;
+    LOG('playAudio called, url =', url ? 'set' : 'null');
     if (!url) return;
     blobUrlRef.current = null;
     localStorage.setItem(RECAP_KEY, new Date().toDateString());
     const audio = new Audio(url);
     audio.onended = () => URL.revokeObjectURL(url);
-    audio.play().catch(() => {});
+    audio.play()
+      .then(() => LOG('audio playing'))
+      .catch(e => LOG('audio.play() failed:', e));
   };
 
   return null;
