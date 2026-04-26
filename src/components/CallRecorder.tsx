@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 
 type RecorderState = 'idle' | 'recording' | 'transcribing' | 'summarizing' | 'done' | 'error';
 
+const CHUNK_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 interface CallResult {
   summary: string;
   transcript: string;
@@ -26,6 +28,7 @@ export default function CallRecorder({ prospectName, onSave, onCancel }: Props) 
   const [result, setResult] = useState<CallResult | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [error, setError] = useState('');
+  const [chunkProgress, setChunkProgress] = useState({ current: 0, total: 0 });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -76,26 +79,42 @@ export default function CallRecorder({ prospectName, onSave, onCancel }: Props) 
   const processAudio = async (blob: Blob, mimeType: string, durationSeconds: number) => {
     setState('transcribing');
     try {
-      const base64 = await blobToBase64(blob);
+      // Découpe en chunks de 10 MB
+      const chunks: Blob[] = [];
+      let offset = 0;
+      while (offset < blob.size) {
+        chunks.push(blob.slice(offset, offset + CHUNK_SIZE_BYTES, mimeType));
+        offset += CHUNK_SIZE_BYTES;
+      }
 
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: base64, mimeType }),
-      });
-      if (!transcribeRes.ok) throw new Error(await transcribeRes.text());
-      const { transcript } = await transcribeRes.json();
+      setChunkProgress({ current: 0, total: chunks.length });
+
+      const transcripts: string[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        setChunkProgress({ current: i + 1, total: chunks.length });
+        const base64 = await blobToBase64(chunks[i]);
+        const res = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: base64, mimeType }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const { transcript } = await res.json();
+        transcripts.push(transcript);
+      }
+
+      const fullTranscript = transcripts.join(' ');
 
       setState('summarizing');
       const summarizeRes = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, prospectName }),
+        body: JSON.stringify({ transcript: fullTranscript, prospectName, durationSeconds }),
       });
       if (!summarizeRes.ok) throw new Error(await summarizeRes.text());
       const { summary } = await summarizeRes.json();
 
-      setResult({ summary, transcript, durationSeconds });
+      setResult({ summary, transcript: fullTranscript, durationSeconds });
       setState('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors du traitement');
@@ -156,7 +175,9 @@ export default function CallRecorder({ prospectName, onSave, onCancel }: Props) 
             {state === 'transcribing' ? 'Transcription en cours…' : 'Génération du résumé…'}
           </p>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-            {state === 'transcribing' ? "Analyse de l'audio…" : "Génération du résumé…"}
+            {state === 'transcribing' && chunkProgress.total > 1
+              ? `Partie ${chunkProgress.current} sur ${chunkProgress.total}…`
+              : state === 'transcribing' ? "Analyse de l'audio…" : 'Extraction des points clés…'}
           </p>
           <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
             <Step done={true} label="Enregistrement" />

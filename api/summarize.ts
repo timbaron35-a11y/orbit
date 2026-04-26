@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'OPENAI_API_KEY manquante' });
 
-  const { transcript, prospectName } = req.body as { transcript: string; prospectName: string };
+  const { transcript, prospectName, durationSeconds } = req.body as { transcript: string; prospectName: string; durationSeconds?: number };
   if (!transcript) return res.status(400).json({ error: 'Transcription manquante' });
 
   try {
@@ -18,22 +18,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       messages: [
         {
           role: 'system',
-          content: `Tu es un assistant CRM pour freelances. Tu analyses des transcriptions d'appels professionnels et tu produis des résumés concis et exploitables. Réponds toujours en français.`,
+          content: `Tu es un assistant CRM ultra-concis pour freelances. Tu extrais UNIQUEMENT les informations commerciales critiques d'un appel. Sois brutal dans ta sélection : ignore les politesses, digressions et tout ce qui n'est pas directement actionnable. Réponds en français.`,
         },
         {
           role: 'user',
-          content: `Voici la transcription d'un appel avec ${prospectName || 'un prospect'}.
+          content: `Transcription d'un appel de ${durationSeconds ? Math.round(durationSeconds / 60) + ' min' : 'durée inconnue'} avec ${prospectName || 'un prospect'}.
 
-Produis un résumé structuré avec :
-1. **Résumé** (2-3 phrases max)
-2. **Points clés** (3-5 bullet points)
-3. **Actions à suivre** (si mentionnées, sinon omets cette section)
+RÈGLES STRICTES :
+- Maximum 4 bullet points
+- Chaque point commence par une catégorie : Budget / Décision / Objection / Prochaine étape / Délai / Besoin
+- Format : "Budget : 4 500 € confirmé"
+- Si une info n'est pas mentionnée clairement, ne l'invente pas et n'en parle pas
+- Ignore tout ce qui est hors-sujet commercial
 
 Transcription :
-${transcript}`,
+${transcript.slice(0, 12000)}`,
         },
       ],
-      max_tokens: 400,
+      max_tokens: 250,
       temperature: 0.3,
     });
 
