@@ -172,9 +172,14 @@ export default function VoiceAgent() {
     mediaRecorderRef.current.stop();
   };
 
-  const handleMicClick = () => {
+  const handleMicDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
     if (micState === 'idle') startRecording();
-    else if (micState === 'recording') stopRecording();
+  };
+
+  const handleMicUp = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (micState === 'recording') stopRecording();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -302,7 +307,7 @@ export default function VoiceAgent() {
             background: 'rgba(0,0,0,0.2)',
           }}>
             {/* Mic */}
-            <MicButton micState={micState} onClick={handleMicClick} />
+            <MicButton micState={micState} onDown={handleMicDown} onUp={handleMicUp} />
 
             {/* Input */}
             <input
@@ -310,7 +315,7 @@ export default function VoiceAgent() {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isRecording ? 'Écoute…' : isTranscribing ? 'Transcription…' : 'Message…'}
+              placeholder={isRecording ? 'Écoute…' : isTranscribing ? 'Transcription…' : 'Écris ou maintiens 🎙 pour parler…'}
               disabled={micState !== 'idle'}
               style={{
                 flex: 1,
@@ -399,18 +404,25 @@ export default function VoiceAgent() {
   );
 }
 
-function MicButton({ micState, onClick }: { micState: MicState; onClick: () => void }) {
+function MicButton({ micState, onDown, onUp }: {
+  micState: MicState;
+  onDown: (e: React.MouseEvent | React.TouchEvent) => void;
+  onUp: (e: React.MouseEvent | React.TouchEvent) => void;
+}) {
   const [hover, setHover] = useState(false);
   const isRecording = micState === 'recording';
   const isTranscribing = micState === 'transcribing';
 
   return (
     <button
-      onClick={onClick}
+      onMouseDown={onDown}
+      onMouseUp={onUp}
+      onMouseLeave={e => { setHover(false); if (isRecording) onUp(e); }}
+      onTouchStart={onDown}
+      onTouchEnd={onUp}
       disabled={isTranscribing}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      title={isRecording ? 'Arrêter' : 'Parler'}
+      title="Maintenir pour parler"
       style={{
         flexShrink: 0,
         width: 36, height: 36, borderRadius: 10,
@@ -423,10 +435,11 @@ function MicButton({ micState, onClick }: { micState: MicState; onClick: () => v
         cursor: isTranscribing ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 0.15s',
-        transform: hover && !isTranscribing ? 'scale(1.05)' : 'scale(1)',
+        transform: isRecording ? 'scale(0.95)' : hover && !isTranscribing ? 'scale(1.05)' : 'scale(1)',
+        userSelect: 'none',
       }}
     >
-      {isTranscribing ? <ThinkingDots /> : isRecording ? '⏹' : '🎙'}
+      {isTranscribing ? <ThinkingDots /> : '🎙'}
     </button>
   );
 }
