@@ -468,15 +468,31 @@ export default function Settings() {
               },
             ].map(({ key, label, desc, toastOn, toastOff }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{label}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{desc}</div>
                 </div>
+                {key === 'morningRecap' && settings.morningRecap && (
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('morningRecapDate');
+                      sessionStorage.removeItem('splashShown');
+                      showToast('Récap réinitialisé — recharge la page');
+                    }}
+                    style={{
+                      fontSize: 11.5, color: 'var(--text-muted)', background: 'transparent',
+                      border: '1px solid var(--border)', borderRadius: 7,
+                      padding: '4px 10px', cursor: 'pointer', marginLeft: 12, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Tester
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     const next = { ...settings, [key]: !settings[key] };
                     await saveSettings(next);
-                    if (key === 'morningRecap' && next[key]) localStorage.removeItem('morningRecapDate');
+                    if (key === 'morningRecap') localStorage.removeItem('morningRecapDate');
                     showToast(next[key] ? toastOn : toastOff);
                   }}
                   style={{
