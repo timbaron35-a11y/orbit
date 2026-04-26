@@ -44,6 +44,8 @@ export default function VoiceAgent() {
   const [fabHover, setFabHover] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [wakeReady, setWakeReady] = useState(false);
+  const wakeRef = useRef<SpeechRecognition | null>(null);
 
   const { workspaceUid } = useWorkspace();
   const { plan } = useTheme();
@@ -80,6 +82,50 @@ export default function VoiceAgent() {
       streamRef.current = null;
     }
   }, [open]);
+
+  // Wake word "orbit"
+  useEffect(() => {
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+
+    const sr: SpeechRecognition = new SR();
+    sr.lang = 'fr-FR';
+    sr.continuous = true;
+    sr.interimResults = true;
+    wakeRef.current = sr;
+
+    sr.onresult = (e: SpeechRecognitionEvent) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript.toLowerCase();
+        if (t.includes('orbit') && micState === 'idle') {
+          sr.stop();
+          setOpen(true);
+          setTimeout(() => startRecording(), 300);
+          return;
+        }
+      }
+    };
+    // Redémarre automatiquement si ça s'arrête
+    sr.onend = () => {
+      if (wakeRef.current === sr) {
+        try { sr.start(); } catch { /* already started */ }
+      }
+    };
+    sr.onerror = (e: SpeechRecognitionErrorEvent) => {
+      if (e.error === 'not-allowed') { setWakeReady(false); return; }
+    };
+
+    try {
+      sr.start();
+      setWakeReady(true);
+    } catch { /* pas de micro */ }
+
+    return () => {
+      wakeRef.current = null;
+      sr.onend = null;
+      try { sr.stop(); } catch { /* ok */ }
+    };
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -593,6 +639,16 @@ export default function VoiceAgent() {
             background: 'radial-gradient(circle, rgba(124,92,252,0.15) 0%, transparent 70%)',
             animation: 'agentGlow 3s ease-in-out infinite',
             pointerEvents: 'none',
+          }} />
+        )}
+        {/* Indicateur wake word actif */}
+        {wakeReady && !open && !isRecording && (
+          <div title='Dis "Orbit" pour activer' style={{
+            position: 'absolute', bottom: 0, right: 0,
+            width: 12, height: 12, borderRadius: '50%',
+            background: '#22c55e',
+            border: '2px solid #0f0f0f',
+            animation: 'pulse 3s ease-in-out infinite',
           }} />
         )}
         <button
