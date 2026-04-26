@@ -277,6 +277,7 @@ export default function ProspectDetail() {
         <CallAssistant
           prospect={prospect}
           onClose={() => setAssistantOpen(false)}
+          onSaved={reloadProspect}
         />
       )}
     </div>

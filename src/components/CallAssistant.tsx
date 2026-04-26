@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Prospect } from '../types';
-import { STATUS_LABEL, formatCurrency } from '../types';
+import { doc, updateDoc, addDoc, collection, Timestamp, deleteField } from 'firebase/firestore';
+import { db } from '../firebase';
+import type { Prospect, ProspectStatus } from '../types';
+import { STATUS_LABEL, STATUS_COLOR, STATUS_BG, formatCurrency } from '../types';
 import { tsToDate } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface Signal {
   type: 'budget' | 'objection' | 'deadline' | 'interet' | 'decision' | 'besoin';
@@ -19,6 +24,7 @@ interface Analysis {
 interface Props {
   prospect: Prospect;
   onClose: () => void;
+  onSaved?: () => void;
 }
 
 const SIGNAL_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
@@ -55,8 +61,13 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export default function CallAssistant({ prospect, onClose }: Props) {
-  const [phase, setPhase] = useState<'idle' | 'setup' | 'active' | 'ended'>('idle');
+const STATUSES: ProspectStatus[] = ['nouveau', 'contacté', 'devis', 'signé', 'perdu'];
+
+export default function CallAssistant({ prospect, onClose, onSaved }: Props) {
+  const { user } = useAuth();
+  const { workspaceUid } = useWorkspace();
+  const { showToast } = useToast();
+  const [phase, setPhase] = useState<'idle' | 'setup' | 'active' | 'ended' | 'saving'>('idle');
   const [captureMode, setCaptureMode] = useState<'mic' | 'browser'>('browser');
   const [minimized, setMinimized] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -65,6 +76,11 @@ export default function CallAssistant({ prospect, onClose }: Props) {
   const [analyzing, setAnalyzing] = useState(false);
   const [allSignals, setAllSignals] = useState<Signal[]>([]);
   const [error, setError] = useState('');
+  const [summarizing, setSummarizing] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [saveStatus, setSaveStatus] = useState<ProspectStatus>(prospect.status);
+  const [saveReminder, setSaveReminder] = useState('');
+  const [persisting, setPersisting] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -222,7 +238,159 @@ export default function CallAssistant({ prospect, onClose }: Props) {
     setTimeout(runAnalysis, 500);
   };
 
+  const openSavePanel = async () => {
+    setPhase('saving');
+    setSummarizing(true);
+    try {
+      const res = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, prospectName: prospect.name, durationSeconds: elapsed }),
+      });
+      if (res.ok) {
+        const { summary: s } = await res.json();
+        setSummary(s ?? transcript.slice(0, 300));
+      } else {
+        setSummary(transcript.slice(0, 300));
+      }
+    } catch {
+      setSummary(transcript.slice(0, 300));
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  const handlePersist = async () => {
+    if (!user) return;
+    setPersisting(true);
+    try {
+      await addDoc(collection(db, 'users', workspaceUid, 'prospects', prospect.id, 'activities'), {
+        type: 'appel',
+        content: summary,
+        subject: transcript,
+        duration: Math.round(elapsed / 60) || 1,
+        createdAt: Timestamp.now(),
+        authorEmail: user.email ?? 'inconnu',
+      });
+      const update: Record<string, unknown> = {
+        status: saveStatus,
+        lastContact: Timestamp.now(),
+      };
+      if (saveReminder) {
+        update.reminderDate = Timestamp.fromDate(new Date(saveReminder + 'T12:00:00'));
+      } else {
+        update.reminderDate = deleteField();
+      }
+      await updateDoc(doc(db, 'users', workspaceUid, 'prospects', prospect.id), update);
+      showToast('Appel enregistré dans le CRM');
+      onSaved?.();
+      onClose();
+    } catch {
+      showToast('Erreur lors de la sauvegarde', 'error');
+    } finally {
+      setPersisting(false);
+    }
+  };
+
   const moodCfg = analysis ? MOOD_CONFIG[analysis.mood] ?? MOOD_CONFIG.neutre : null;
+
+  // ── Save panel ──────────────────────────────────────────────────────────────
+  if (phase === 'saving') {
+    return (
+      <div style={{
+        position: 'fixed', bottom: 24, right: 24, zIndex: 500,
+        width: 380, background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden',
+      }}>
+        <div style={{ height: 2, background: 'linear-gradient(90deg, var(--accent), #a78bfa, transparent)' }} />
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Enregistrer l'appel</div>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{prospect.name} · {Math.round(elapsed / 60)}min</span>
+          </div>
+
+          {/* Summary */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>Résumé IA</div>
+            {summarizing ? (
+              <div style={{ padding: '14px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                Génération du résumé…
+              </div>
+            ) : (
+              <textarea
+                value={summary}
+                onChange={e => setSummary(e.target.value)}
+                rows={4}
+                style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text)', fontSize: 12.5, padding: '10px 12px', fontFamily: 'inherit', lineHeight: 1.6, resize: 'none', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              />
+            )}
+          </div>
+
+          {/* Status */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Nouveau statut</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {STATUSES.map(s => {
+                const active = saveStatus === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSaveStatus(s)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                      background: active ? STATUS_BG[s] : 'transparent',
+                      color: active ? STATUS_COLOR[s] : 'var(--text-muted)',
+                      border: active ? `1.5px solid ${STATUS_COLOR[s]}50` : '1.5px solid var(--border)',
+                      boxShadow: active ? `0 0 8px ${STATUS_COLOR[s]}25` : 'none',
+                    }}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Reminder */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>Rappel de suivi</div>
+            <input
+              type="date"
+              className="orbit-input"
+              value={saveReminder}
+              onChange={e => setSaveReminder(e.target.value)}
+              style={{ fontSize: 13 }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 7, marginTop: 2 }}>
+            <button
+              onClick={() => setPhase('ended')}
+              style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
+            >
+              Retour
+            </button>
+            <button
+              onClick={handlePersist}
+              disabled={persisting || summarizing || !summary.trim()}
+              style={{
+                flex: 1, padding: '9px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                background: 'var(--accent)', color: 'white', border: 'none',
+                cursor: persisting || summarizing ? 'default' : 'pointer',
+                opacity: persisting ? 0.7 : 1,
+                boxShadow: '0 4px 14px rgba(124,92,252,0.35)',
+              }}
+            >
+              {persisting ? 'Enregistrement…' : '✓ Enregistrer dans le CRM'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Idle / Setup ────────────────────────────────────────────────────────────
   if (phase === 'idle' || phase === 'setup') {
@@ -405,18 +573,16 @@ export default function CallAssistant({ prospect, onClose }: Props) {
           {phase === 'ended' && (
             <div style={{ display: 'flex', gap: 7 }}>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(transcript);
-                }}
-                style={{ flex: 1, padding: '8px', borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                onClick={() => navigator.clipboard.writeText(transcript)}
+                style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
               >
-                Copier transcript
+                Copier
               </button>
               <button
-                onClick={onClose}
-                style={{ flex: 1, padding: '8px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}
+                onClick={openSavePanel}
+                style={{ flex: 1, padding: '8px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(124,92,252,0.35)' }}
               >
-                Fermer
+                ✓ Sauvegarder dans le CRM
               </button>
             </div>
           )}
