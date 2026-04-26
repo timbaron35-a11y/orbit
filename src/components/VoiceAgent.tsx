@@ -135,18 +135,25 @@ export default function VoiceAgent() {
     };
   }, []);
 
-  const speak = useCallback((text: string) => {
-    if (!ttsEnabled || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'fr-FR';
-    utt.rate = 1.05;
-    utt.pitch = 1;
-    // Préfère une voix française si disponible
-    const voices = window.speechSynthesis.getVoices();
-    const frVoice = voices.find(v => v.lang.startsWith('fr') && v.localService) ?? voices.find(v => v.lang.startsWith('fr'));
-    if (frVoice) utt.voice = frVoice;
-    window.speechSynthesis.speak(utt);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const speak = useCallback(async (text: string) => {
+    if (!ttsEnabled) return;
+    try {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.play();
+    } catch { /* silencieux */ }
   }, [ttsEnabled]);
 
   const restartWakeWord = () => {
@@ -331,88 +338,75 @@ export default function VoiceAgent() {
 
   return (
     <>
-      {/* Recording overlay */}
-      {isRecording && (
+      {/* Compact recording / transcribing bubble */}
+      {(isRecording || isTranscribing) && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 950,
-          background: 'rgba(10,8,18,0.85)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          animation: 'fadeIn 0.2s ease',
+          position: 'fixed', bottom: 90, right: 24, zIndex: 950,
+          width: 220,
+          background: 'linear-gradient(160deg, #1a1525 0%, #131013 100%)',
+          border: '1px solid rgba(124,92,252,0.25)',
+          borderRadius: 20,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+          padding: '20px 16px 16px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+          animation: 'agentSlideUp 0.2s cubic-bezier(0.34,1.56,0.64,1) both',
         }}>
-          {/* Outer glow rings */}
-          <div style={{ position: 'relative', width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {[1.6, 1.35, 1.15].map((s, i) => (
+          {/* Orb */}
+          <div style={{ position: 'relative', width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {isRecording && [1.5, 1.25].map((s, i) => (
               <div key={i} style={{
-                position: 'absolute',
-                width: 120, height: 120,
-                borderRadius: '50%',
-                background: `rgba(124,92,252,${0.04 + i * 0.03})`,
-                transform: `scale(${s * (1 + audioLevel * 0.15 * (3 - i))})`,
-                transition: 'transform 0.08s ease',
+                position: 'absolute', width: 60, height: 60, borderRadius: '50%',
+                background: `rgba(124,92,252,${0.06 + i * 0.04})`,
+                transform: `scale(${s * (1 + audioLevel * 0.2)})`,
+                transition: 'transform 0.07s ease',
               }} />
             ))}
-            {/* Core orb */}
             <div style={{
-              width: 100, height: 100, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #7c5cfc 0%, #5b3fd4 50%, #4f35b8 100%)',
-              boxShadow: `0 0 ${30 + audioLevel * 50}px ${10 + audioLevel * 20}px rgba(124,92,252,${0.3 + audioLevel * 0.4})`,
-              transform: `scale(${orbScale})`,
+              width: 60, height: 60, borderRadius: '50%',
+              background: isTranscribing
+                ? 'linear-gradient(135deg, rgba(124,92,252,0.3), rgba(124,92,252,0.1))'
+                : 'linear-gradient(135deg, #7c5cfc, #4f35b8)',
+              boxShadow: isRecording
+                ? `0 0 ${16 + audioLevel * 24}px ${4 + audioLevel * 10}px rgba(124,92,252,${0.3 + audioLevel * 0.35})`
+                : '0 0 20px 4px rgba(124,92,252,0.2)',
+              transform: isRecording ? `scale(${orbScale})` : 'scale(1)',
               transition: 'transform 0.06s ease, box-shadow 0.06s ease',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 36,
+              fontSize: 22,
+              animation: isTranscribing ? 'agentGlow 1.5s ease-in-out infinite' : 'none',
             }}>
               ✦
             </div>
           </div>
 
-          <p style={{ fontSize: 17, fontWeight: 600, color: '#e5e5e5', marginTop: 32, letterSpacing: '-0.2px' }}>
-            Je t'écoute…
-          </p>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 8 }}>
-            Silence détecté → envoi automatique
-          </p>
-
-          <button
-            onClick={stopRecording}
-            style={{
-              marginTop: 32, padding: '10px 28px', borderRadius: 100,
-              background: 'rgba(255,255,255,0.07)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.6)'; }}
-          >
-            Envoyer maintenant
-          </button>
-        </div>
-      )}
-
-      {/* Transcribing overlay */}
-      {isTranscribing && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 950,
-          background: 'rgba(10,8,18,0.85)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          animation: 'fadeIn 0.15s ease',
-        }}>
-          <div style={{
-            width: 80, height: 80, borderRadius: '50%',
-            background: 'linear-gradient(135deg, rgba(124,92,252,0.3), rgba(124,92,252,0.1))',
-            border: '2px solid rgba(124,92,252,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 28, marginBottom: 20,
-            animation: 'agentGlow 1.5s ease-in-out infinite',
-          }}>
-            ✦
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#e5e5e5', margin: 0 }}>
+              {isTranscribing ? 'Transcription…' : 'Je t\'écoute…'}
+            </p>
+            {isRecording && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
+                silence → envoi auto
+              </p>
+            )}
+            {isTranscribing && <ThinkingDots color="rgba(124,92,252,0.7)" />}
           </div>
-          <p style={{ fontSize: 15, fontWeight: 500, color: '#e5e5e5' }}>Transcription en cours…</p>
-          <ThinkingDots color="rgba(124,92,252,0.8)" />
+
+          {isRecording && (
+            <button
+              onClick={stopRecording}
+              style={{
+                padding: '6px 18px', borderRadius: 100,
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.5)', fontSize: 11.5, cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.12)'; el.style.color = '#fff'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.06)'; el.style.color = 'rgba(255,255,255,0.5)'; }}
+            >
+              Envoyer maintenant
+            </button>
+          )}
         </div>
       )}
 
