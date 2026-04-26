@@ -258,6 +258,21 @@ function InfoCard({ prospect, activityCount }: { prospect: Prospect; activityCou
             {STATUS_LABEL[prospect.status]}
           </span>
         } />
+        {prospect.company && <InfoRow label="Entreprise" value={prospect.company} />}
+        {prospect.email && (
+          <InfoRow label="Email" value={
+            <a href={`mailto:${prospect.email}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+              {prospect.email}
+            </a>
+          } />
+        )}
+        {prospect.phone && (
+          <InfoRow label="Téléphone" value={
+            <a href={`tel:${prospect.phone}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+              {prospect.phone}
+            </a>
+          } />
+        )}
         <InfoRow label="Montant" value={prospect.amount > 0 ? formatCurrency(prospect.amount) : '—'} />
         <InfoRow label="Dernier contact" value={formatDate(tsToDate(prospect.lastContact))} />
         {prospect.reminderDate && (
