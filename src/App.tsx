@@ -125,6 +125,6 @@ export default function App() {
 function AuthRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
+  if (user && !user.isAnonymous) return <Navigate to="/" replace />;
   return <Suspense fallback={null}><Login /></Suspense>;
 }
