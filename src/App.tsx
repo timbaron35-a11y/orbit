@@ -57,7 +57,7 @@ function ProtectedLayout() {
   const playRecapRef = useRef<(() => void) | null>(null);
 
   if (loading) return <PageFallback />;
-  if (!user) return <Suspense fallback={<PageFallback />}><Landing /></Suspense>;
+  if (!user || user.isAnonymous) return <Suspense fallback={<PageFallback />}><Landing /></Suspense>;
   if (!loaded) return <PageFallback />;
   if (isNewUser) return <Suspense fallback={<PageFallback />}><Onboarding /></Suspense>;
 
