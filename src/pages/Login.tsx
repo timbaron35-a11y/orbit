@@ -1,10 +1,18 @@
-import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Clear any stale anonymous session so the login form works cleanly
+  useEffect(() => {
+    if (auth.currentUser?.isAnonymous) {
+      signOut(auth).catch(console.error);
+    }
+  }, []);
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>(searchParams.get('register') ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -197,6 +205,17 @@ export default function Login() {
                 {mode === 'login' ? "S'inscrire" : "Se connecter"}
               </button>
             </div>
+
+            {mode === 'login' && (
+              <div style={{ marginTop: 16, borderTop: '1px solid var(--border-subtle)', paddingTop: 16, textAlign: 'center' }}>
+                <button
+                  onClick={() => navigate('/demo')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12.5, cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                >
+                  Essayer sans compte →
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
