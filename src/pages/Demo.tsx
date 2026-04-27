@@ -74,13 +74,14 @@ function DemoApp() {
             <Sidebar basePath="/demo" />
             <main className="demo-main" style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)' }}>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/pipeline" element={<Pipeline />} />
-                <Route path="/clients" element={<Clients />} />
-                <Route path="/clients/:id" element={<ProspectDetail />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/team" element={<Team />} />
+                <Route path="/demo" element={<Dashboard />} />
+                <Route path="/demo/pipeline" element={<Pipeline />} />
+                <Route path="/demo/clients" element={<Clients />} />
+                <Route path="/demo/clients/:id" element={<ProspectDetail />} />
+                <Route path="/demo/agenda" element={<Agenda />} />
+                <Route path="/demo/settings" element={<Settings />} />
+                <Route path="/demo/team" element={<Team />} />
+                <Route path="*" element={<Dashboard />} />
               </Routes>
             </main>
           </div>

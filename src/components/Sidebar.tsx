@@ -68,7 +68,7 @@ const LogOutIcon = () => (
 );
 
 const buildNavItems = (reminderCount: number, base = '') => [
-  { to: base + '/', label: 'Dashboard', icon: <GridIcon />, badge: reminderCount, id: 'tour-dashboard' },
+  { to: base === '' ? '/' : base, label: 'Dashboard', icon: <GridIcon />, badge: reminderCount, id: 'tour-dashboard' },
   { to: base + '/pipeline', label: 'Pipeline', icon: <FunnelIcon />, badge: 0, id: 'tour-pipeline' },
   { to: base + '/clients', label: 'Prospects', icon: <UsersIcon />, badge: 0, id: 'tour-clients' },
   { to: base + '/agenda', label: 'Agenda', icon: <CalendarIcon />, badge: reminderCount, id: 'tour-agenda' },
@@ -319,7 +319,7 @@ export default function Sidebar({ basePath = '' }: { basePath?: string }) {
             key={to}
             id={id}
             to={to}
-            end={to === '/'}
+            end={to === '/' || to === basePath}
             style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '9px 10px', borderRadius: 9, marginBottom: 2,
