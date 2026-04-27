@@ -67,16 +67,16 @@ const LogOutIcon = () => (
   </svg>
 );
 
-const buildNavItems = (reminderCount: number) => [
-  { to: '/', label: 'Dashboard', icon: <GridIcon />, badge: reminderCount, id: 'tour-dashboard' },
-  { to: '/pipeline', label: 'Pipeline', icon: <FunnelIcon />, badge: 0, id: 'tour-pipeline' },
-  { to: '/clients', label: 'Prospects', icon: <UsersIcon />, badge: 0, id: 'tour-clients' },
-  { to: '/agenda', label: 'Agenda', icon: <CalendarIcon />, badge: reminderCount, id: 'tour-agenda' },
-  { to: '/automations', label: 'Automations', icon: <ZapIcon />, badge: 0, id: undefined },
-  { to: '/settings', label: 'Paramètres', icon: <SettingsIcon />, badge: 0, id: 'tour-settings' },
+const buildNavItems = (reminderCount: number, base = '') => [
+  { to: base + '/', label: 'Dashboard', icon: <GridIcon />, badge: reminderCount, id: 'tour-dashboard' },
+  { to: base + '/pipeline', label: 'Pipeline', icon: <FunnelIcon />, badge: 0, id: 'tour-pipeline' },
+  { to: base + '/clients', label: 'Prospects', icon: <UsersIcon />, badge: 0, id: 'tour-clients' },
+  { to: base + '/agenda', label: 'Agenda', icon: <CalendarIcon />, badge: reminderCount, id: 'tour-agenda' },
+  { to: base + '/automations', label: 'Automations', icon: <ZapIcon />, badge: 0, id: undefined },
+  { to: base + '/settings', label: 'Paramètres', icon: <SettingsIcon />, badge: 0, id: 'tour-settings' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ basePath = '' }: { basePath?: string }) {
   const { user, signOut } = useAuth();
   const { workspaceUid, sharedWorkspaces, pendingInvitations, switchWorkspace, acceptInvitation, declineInvitation, isOwn } = useWorkspace();
   const { settings, plan } = useTheme();
@@ -314,7 +314,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '10px 8px' }}>
-        {buildNavItems(reminderCount).map(({ to, label, icon, badge, id }) => (
+        {buildNavItems(reminderCount, basePath).map(({ to, label, icon, badge, id }) => (
           <NavLink
             key={to}
             id={id}
@@ -361,7 +361,7 @@ export default function Sidebar() {
 
         {isOwn && plan === 'agence' && (
           <NavLink
-            to="/team"
+            to={basePath + '/team'}
             style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '9px 10px', borderRadius: 9, marginBottom: 2,
