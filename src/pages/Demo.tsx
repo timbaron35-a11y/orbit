@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase';
+import { collection, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { WorkspaceProvider } from '../contexts/WorkspaceContext';
@@ -16,6 +18,45 @@ import Settings from './Settings';
 import Team from './Team';
 import DemoTour from '../components/DemoTour';
 
+const daysAgo = (n: number) => Timestamp.fromDate(new Date(Date.now() - n * 86400000));
+const daysFromNow = (n: number) => Timestamp.fromDate(new Date(Date.now() + n * 86400000));
+
+const DEMO_PROSPECTS = [
+  { name: 'Agence Lumière', status: 'signé', amount: 4800, notes: 'Refonte complète site + SEO', lastContact: daysAgo(2), assignedTo: null, reminderDate: null },
+  { name: 'Studio Craft', status: 'devis', amount: 2200, notes: 'Logo + charte graphique', lastContact: daysAgo(5), assignedTo: null, reminderDate: daysFromNow(2) },
+  { name: 'TechFlow SAS', status: 'contacté', amount: 6500, notes: 'Appli mobile MVP', lastContact: daysAgo(3), assignedTo: null, reminderDate: daysFromNow(1) },
+  { name: 'Maison Durval', status: 'nouveau', amount: 1200, notes: 'Shooting photo produits', lastContact: daysAgo(1), assignedTo: null, reminderDate: null },
+  { name: 'Optika Group', status: 'devis', amount: 3400, notes: 'Dashboard analytics', lastContact: daysAgo(8), assignedTo: null, reminderDate: daysFromNow(3) },
+  { name: 'Cabinet Renard', status: 'contacté', amount: 900, notes: 'Plaquette commerciale PDF', lastContact: daysAgo(12), assignedTo: null, reminderDate: null },
+  { name: 'Bloom Agency', status: 'signé', amount: 7200, notes: 'Campagne social media 6 mois', lastContact: daysAgo(4), assignedTo: null, reminderDate: null },
+  { name: 'Nord Immo', status: 'perdu', amount: 2800, notes: 'Budget revu à la baisse', lastContact: daysAgo(20), assignedTo: null, reminderDate: null },
+  { name: 'Vega Solutions', status: 'nouveau', amount: 5100, notes: 'Automatisation processus RH', lastContact: daysAgo(0), assignedTo: null, reminderDate: daysFromNow(5) },
+  { name: 'Café Nomade', status: 'contacté', amount: 750, notes: 'Menu digital + QR code', lastContact: daysAgo(6), assignedTo: null, reminderDate: null },
+];
+
+const DEMO_SETTINGS = {
+  appName: 'Orbit Demo',
+  tagline: 'CRM pour freelances',
+  accentColor: '#7c5cfc',
+  plan: 'setup',
+};
+
+async function seedDemoData(uid: string) {
+  const metaRef = doc(db, 'users', uid, 'meta', 'settings');
+  const existing = await getDoc(metaRef);
+  if (existing.exists()) return; // already seeded
+
+  await setDoc(metaRef, DEMO_SETTINGS);
+
+  const prospectsCol = collection(db, 'users', uid, 'prospects');
+  await Promise.all(
+    DEMO_PROSPECTS.map(p => {
+      const ref = doc(prospectsCol);
+      return setDoc(ref, { ...p, createdAt: daysAgo(Math.floor(Math.random() * 30) + 1) });
+    })
+  );
+}
+
 function DemoApp() {
   const { user, loading } = useAuth();
   const [authed, setAuthed] = useState(false);
@@ -27,7 +68,7 @@ function DemoApp() {
     if (!user) {
       signInAnonymously(auth).catch(() => setAuthError(true));
     } else {
-      setAuthed(true);
+      seedDemoData(user.uid).finally(() => setAuthed(true));
     }
   }, [user, loading]);
 
@@ -67,20 +108,20 @@ function DemoApp() {
             zIndex: 200,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'white', opacity: 0.7, flexShrink: 0 }} />
-            Mode démo — vos données sont temporaires et isolées
+            Mode démo — données d'exemple, session isolée
           </div>
 
           <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 32 }}>
             <Sidebar basePath="/demo" />
             <main className="demo-main" style={{ flex: 1, marginLeft: 220, minHeight: '100vh', background: 'var(--bg)' }}>
               <Routes>
-                <Route path="/demo" element={<Dashboard />} />
-                <Route path="/demo/pipeline" element={<Pipeline />} />
-                <Route path="/demo/clients" element={<Clients />} />
-                <Route path="/demo/clients/:id" element={<ProspectDetail />} />
-                <Route path="/demo/agenda" element={<Agenda />} />
-                <Route path="/demo/settings" element={<Settings />} />
-                <Route path="/demo/team" element={<Team />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/pipeline" element={<Pipeline />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/clients/:id" element={<ProspectDetail />} />
+                <Route path="/agenda" element={<Agenda />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/team" element={<Team />} />
                 <Route path="*" element={<Dashboard />} />
               </Routes>
             </main>
