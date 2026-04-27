@@ -19,16 +19,31 @@ import DemoTour from '../components/DemoTour';
 function DemoApp() {
   const { user, loading } = useAuth();
   const [authed, setAuthed] = useState(false);
+  const [authError, setAuthError] = useState(false);
   const [tourDone, setTourDone] = useState(false);
 
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      signInAnonymously(auth).catch(console.error);
+      signInAnonymously(auth).catch(() => setAuthError(true));
     } else {
       setAuthed(true);
     }
   }, [user, loading]);
+
+  if (authError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', flexDirection: 'column', gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', textAlign: 'center' }}>La démo nécessite l'authentification anonyme Firebase</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 380, lineHeight: 1.6 }}>
+          Active <strong style={{ color: 'var(--text)' }}>Authentication → Anonymous</strong> dans la Firebase Console du projet <strong style={{ color: 'var(--text)' }}>orbit-app-e70dd</strong>, puis recharge.
+        </div>
+        <button onClick={() => window.location.reload()} style={{ padding: '9px 22px', borderRadius: 9, background: 'var(--accent)', color: 'white', border: 'none', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+          Recharger
+        </button>
+      </div>
+    );
+  }
 
   if (!authed) {
     return (
