@@ -413,6 +413,19 @@ export default function Landing() {
           >Contact</a>
         </div>
         <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.15)' }}>© 2026 Orbit · Fait pour les freelances</span>
+        <button
+          onClick={async () => {
+            const { signOut } = await import('firebase/auth');
+            const { auth } = await import('../firebase');
+            try { await signOut(auth); } catch {}
+            localStorage.clear();
+            try { indexedDB.deleteDatabase('firebaseLocalStorageDb'); } catch {}
+            window.location.href = '/login';
+          }}
+          style={{ fontSize: 11, color: 'rgba(255,255,255,0.08)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.3)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.08)')}
+        >Réinitialiser la session</button>
       </footer>
 
       {/* Mentions légales modal */}
